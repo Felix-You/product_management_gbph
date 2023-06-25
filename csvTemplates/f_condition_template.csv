@@ -1,0 +1,8 @@
+coa_offer,b,COA提供:,COA
+cda_offer,b,CDA签订:,CDA
+dmf_offer,b,DMF提供:,DMF
+dmf_offer_desc,t,DMF备注:,
+loa_offer,e,LOA提供:,"[""未申请"",""申请中"",""已提供""]"
+long_supply_agreement,e,长供协议:,"[""未签订"",""准备中"",""已提供""]"
+manufacturer_file_registration,e,厂家资料:,"[""未申请"",""申请中"",""已提供""]"
+distributor_file_offer,e,安信资料:,"[""未提供"",""准备中"",""已提供""]"
