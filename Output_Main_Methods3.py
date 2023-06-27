@@ -162,9 +162,9 @@ class OutputMainWindow(QtWidgets.QMainWindow, Ui_MainWindow, QComboBox):
         self.checkDataBase()
         # self.event
         self.groupBox_3.setMinimumSize(270*DataView.DF_Ratio, 35*DataView.DF_Ratio)
-        self.groupBox.setFixedHeight(100 * DataView.FIX_SIZE_WIDGET_SCALING)
-        self.groupBox_2.setFixedHeight(100 * DataView.FIX_SIZE_WIDGET_SCALING)
-        self.groupBox_4.setFixedHeight(100 * DataView.FIX_SIZE_WIDGET_SCALING)
+        # # self.groupBox.setFixedHeight(100 * DataView.FIX_SIZE_WIDGET_SCALING)
+        # self.groupBox_2.setFixedHeight(100 * DataView.FIX_SIZE_WIDGET_SCALING)
+        # self.groupBox_4.setFixedHeight(100 * DataView.FIX_SIZE_WIDGET_SCALING)
 
         #文件路径函数
         self.working_dir = workingDir

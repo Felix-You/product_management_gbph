@@ -1,4 +1,5 @@
 import json
+import math
 from typing import Union
 from core.GlobalListener import global_logger
 import openpyxl, ctypes
@@ -78,52 +79,118 @@ class int_yield_num(float):
     def __rmul__(self, other):
         return self.__mul__(other)
 
+# 开发时所默认的空间大小，由开发时的实际屏幕尺寸和DPI决定。控件尺寸 = 像素数/DPI。
+# 控件按实际显示尺寸的策略，分为物理尺寸固定控件和可缩放控件。在设备的类型（比如都是电脑）不变，即用户使用时设备放置距离
+# 不变的情况下，物理尺寸固定空间的实际显示尺寸不随屏幕物理大小改变。
+def sigmoid(x):
+    return 1/(1+math.exp(-x))
+def _get_terminal_size_windows():
 
+    # try:
+    if True:
+        from ctypes import windll, create_string_buffer
+
+        # stdin handle is -10
+        # stdout handle is -11
+        # stderr handle is -12
+
+        h = windll.kernel32.GetStdHandle(-11)
+        csbi = create_string_buffer(22)
+        res = windll.kernel32.GetConsoleScreenBufferInfo(h, csbi)
+        print('res:', res)
+    # except (AttributeError, ValueError):
+    #     return None
+    if True:
+        import struct
+        (bufx, bufy, curx, cury, wattr, left, top, right, bottom, maxx,
+         maxy) = struct.unpack("hhhhHhhhhhh", csbi.raw)
+        sizex = right - left + 1
+        sizey = bottom - top + 1
+        return sizex, sizey
+    else:
+        return None
+
+def get_scr_size():
+    return [int(x) for x in os.popen("stty size", "r").read().split()]
+
+BASE_H_RESOLUTION = 1600
+BASE_V_RESOLUTION = 900
+BASE_DPI = 96
 hDC = win32gui.GetDC(0)
 screen_real_hResolution = win32print.GetDeviceCaps(hDC, win32con.DESKTOPHORZRES)
 screen_real_vResolution = win32print.GetDeviceCaps(hDC, win32con.DESKTOPVERTRES)
-screen_use_vResolution = win32api.GetSystemMetrics(win32con.SM_CXSCREEN)
-DF_Ratio = win32api.GetSystemMetrics(0)/1600 # 开发时使用的屏幕分辨率为1600*900,缩放比1.0
-DF_Ratio = int_yield_num(DF_Ratio)
-BASE_DPI = 96
-# FIX_SIZE_WIDGET_SCALIN
-FIX_SIZE_WIDGET_SCALING=int_yield_num(1)
+# screen_use_vResolution = win32api.GetSystemMetrics(0)
+# screen_use_hResolution = win32api.GetSystemMetrics(1)
+# size_h , size_v = get_scr_size()
+
+DF_Ratio = win32api.GetSystemMetrics(0)/BASE_H_RESOLUTION # 开发时使用的屏幕分辨率为1600*900,缩放比1.0
+
+# DF_Ratio = int_yield_num(DF_Ratio) # python3.10 does not cast float to int
+
 USER_COMPANY_NAME = '广州国标检验检测有限公司'
 USER_COMPANY_SHORT_NAME = '国标'
 global_logger.debug('screen_real_hResolution={}'.format(screen_real_hResolution))
 global_logger.debug('screen_real_vResolution={}'.format(screen_real_vResolution))
-global_logger.debug('screen_use_vResolution={}'.format(screen_use_vResolution))
-global_logger.debug('DF_Ratio={}'.format( DF_Ratio))
+# global_logger.debug('screen_use_vResolution={}'.format(screen_use_vResolution))
+# global_logger.debug('DF_Ratio={}'.format( DF_Ratio))
 
 class ResolutionAdaptor():
 
     def __init__(self):
         # ...........
-        self.app = QApplication.instance()  # Calculate the ratio. Design screen is [1366, 768]
+        self.app = QApplication.instance()  # Calculate the ratio.
         # self.widget = widget
+        # screen_resolution = self.app.desktop().screenGeometry()
+        # width, height = screen_resolution.width(), screen_resolution.height()
         screen_count = self.app.desktop().screenCount()
         # self.app.desktop().screen(-1).setGeometry(0,0,screen_real_hResolution, screen_real_vResolution)
         DPI = self.app.screens()[0].logicalDotsPerInch()
         # scaleRate = self.app.screens()[0].logicalDotsPerInch()/96 # Windows系统缩放比，此比例由操作系统产生，若要消除其影响，则需预先除掉
         #但实际上Qt有自己独立的缩放方法，虽然Windows有多级缩放，但Qt并不完全与Windows的缩放比例同步
-        screen_resolution = self.app.desktop().screenGeometry()
+
+
+        screen_resolution = self.app.desktop().screenGeometry() # logical resolution
+        screen_logical_width = screen_resolution.width()
+        screen_logical_height = screen_resolution.height()
         scaleRate = screen_real_hResolution/screen_resolution.width()
+        LOGICAL_METRIC_RATIO = screen_logical_width / BASE_H_RESOLUTION
         self.hw_ratio = 900 / 1600  # height / width
         global_logger.debug('screen_count={}'.format( screen_count))
         global_logger.debug('DPI={}'.format(DPI))
         global_logger.debug('scaleRate={}'.format( scaleRate))
         global_logger.debug('screen_width={}'.format( screen_resolution.width()))
         global_logger.debug('screen_hight={}'.format(screen_resolution.height()))
-        self.ratio_wid = int_yield_num((screen_real_hResolution / 1600) /scaleRate)
+        # self.ratio_wid = int_yield_num((screen_real_hResolution / 1600) /scaleRate)
+        self.ratio_wid = int_yield_num(screen_logical_width / BASE_H_RESOLUTION)
         # self.ratio_wid = screen_real_hResolution / 1600
         global DF_Ratio,FIX_SIZE_WIDGET_SCALING
         DF_Ratio = int_yield_num(self.ratio_wid)
-        FIX_SIZE_WIDGET_SCALING = DPI / BASE_DPI
+        # HARD_FIX_SIZE_WIDGET_SCALING = (screen_logical_width / DPI)
+        HARD_FIX_SIZE_WIDGET_SCALING = DPI / BASE_DPI # the scaling factor to keep widget in identical physical metrics
+
+        # FIX_SIZE_WIDGET_SCALING is used for widgets that should basically keep their physical metrics on different devices,
+        # while some moderate adjust is advisable. Thus, the scaling is designed non_linear, using a
+
+        # FIX_SIZE_WIDGET_SCALING is caculated from an adjusted sigmoid curve which has the maximum slope .
+        # when _DF_Ratio == 1, and a symmetry center at (1, 1), and value range(0, 2)
+        _DF_Ratio = float(DF_Ratio) * HARD_FIX_SIZE_WIDGET_SCALING
+        x_1 = _DF_Ratio - 1 # Symmetry center at (1, 1), when _DF_Ratio == 1
+        x_2 = x_1 * 0.5 * (math.exp(-4 * abs(x_1)) + 1) # non-linear scaling of the x-axis, making the slope of the
+                                                        # sigmoid curve flatter , except for the symmetry center.
+        FIX_SIZE_WIDGET_SCALING = 2 * (sigmoid(1.5 * x_2) - 0.5) + 1 # Adjusted sigmoid curve, which has a maximum slope of 1
+                                                                   # when _DF_Ratio == 1, and a symmetry center at (1, 1), and value range(0, 2)
+
         FIX_SIZE_WIDGET_SCALING = int_yield_num(FIX_SIZE_WIDGET_SCALING)
+        global_logger.debug('FIX_SIZE_WIDGET_SCALING={}'.format(FIX_SIZE_WIDGET_SCALING))
         # self.ratio_wid = screen_real_hResolution / 1600
         # if self.ratio_wid < 1:
         #     self.ratio_wid = 1
-        self.ratio_height = int_yield_num((screen_real_vResolution / 900 ) / scaleRate )
+        self.ratio_height = int_yield_num(screen_logical_height / BASE_V_RESOLUTION )
+        default_font = QFont()
+        default_font.setFamily("Microsoft YaHei UI")
+        default_font.setPointSize(10 * FIX_SIZE_WIDGET_SCALING)
+        QApplication.setFont(default_font)
+        n = 0
         # self.ratio_height = screen_real_vResolution / 900
         # self.ratio_height = screen_real_vResolution / 900
         # if self.ratio_height < 1:
@@ -147,6 +214,7 @@ class ResolutionAdaptor():
         input_ui.resize(input_ui.width() * self.ratio_wid, input_ui.height() * self.ratio_height)
         # input_ui.setFixedWidth(input_ui.width() * self.ratio_wid)
         # input_ui.setFixedHeight(input_ui.height() * self.ratio_height)
+        pass
 
     def _move_with_ratio(self, input_ui):
         input_ui.move(input_ui.geometry().x() * self.ratio_wid, input_ui.geometry().y() * self.ratio_height)
@@ -3069,7 +3137,7 @@ class MultiSelectGroupBoxHandler(object):
             check_item_width_max = max(item_wid, check_item_width_max)
             tmp_frame_height += item_height + self.row_between_width
             check_item.setSizePolicy(QtWidgets.QSizePolicy.Minimum,QtWidgets.QSizePolicy.Minimum)
-            check_item.move(moveX * FIX_SIZE_WIDGET_SCALING, moveY * FIX_SIZE_WIDGET_SCALING)
+            check_item.move(moveX ,  moveY)
 
             moveY += item_height + self.row_between_width
             i_row += 1

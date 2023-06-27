@@ -1988,8 +1988,8 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
         self.model = model
         self.drag_drop_enabled = drag_drop_enabled
         self.isCritial_slideButton = SliderButton(parent=self, fontText='紧急')
-        scaling_ratio  = min
-        size = QtCore.QSize(50 * DataView.FIX_SIZE_WIDGET_SCALING, 24 * DataView.FIX_SIZE_WIDGET_SCALING)
+        scaling_ratio  = min(1, DataView.DF_Ratio)
+        size = QtCore.QSize(50 *scaling_ratio, 24 * scaling_ratio)
         self.isCritial_slideButton.setFixedSize(size)
         self.isCritial_slideButton.setColourChecked(GColour.getAlphaColor(GColour.TaskColour.TaskIsCritial, 180))
         self.verticalLayout_10.addWidget(self.isCritial_slideButton)
@@ -2003,7 +2003,7 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
                                                          colourStatus_1=(140, 150, 220, 150),
                                                          colourStatus_2=(140, 220, 150, 150))
         self.verticalLayout_5.addWidget(self.todoStatus_triSlideButton)
-        self.todoStatus_triSlideButton.setFixedSize(30 * DataView.FIX_SIZE_WIDGET_SCALING, 46 * DataView.FIX_SIZE_WIDGET_SCALING)
+        self.todoStatus_triSlideButton.setFixedSize(30 * scaling_ratio, 46 * scaling_ratio)
         self.textEdit.mouseDoubleClickEvent = types.MethodType(new_doubleClickEvent, self.textEdit)
 
         self.groupBox.setStyleSheet(
@@ -2239,6 +2239,7 @@ class EmptyDropFrame(QFrame):
         # self.parent.todo_view.handleTodoUnitDrop(source_id, target_id)
         self.parent_view.on_empty_frame_drop(mime_data, self)
         return
+
 class ToDoUnitCreateDialog(QtWidgets.QDialog):
     def __init__(self, company_id: str = None, conn_project_id: str = None, conn_task_id: str = None,
                  parent=None, presenter = None):

@@ -200,18 +200,15 @@ def main():
     # global_logger.error('error级别，一般用来打印一些错误信息')
     # global_logger.critical('critical级别，一般用来打印一些致命的错误信息，等级最高')
     handleDesktopShortcut()
-    QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling,True)
-    if hasattr(QtCore.Qt, 'AA_UseHighDpiPixmaps'):
-        GlobalApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
-    os.environ["QT_SCALE_FACTOR"] = '1'
-    os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
-    os.environ['QT_ENABLE_HIGHDPI_SCALING'] = '1'
-    QGuiApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+    QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)
+    # if hasattr(QtCore.Qt, 'AA_UseHighDpiPixmaps'):
+    #     GlobalApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
+    # os.environ["QT_SCALE_FACTOR"] = '1'
+    # os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
+    # os.environ['QT_ENABLE_HIGHDPI_SCALING'] = '1'
+    QGuiApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.Floor)
     app = GlobalApplication(sys.argv)
     app.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
-    os.environ["QT_SCALE_FACTOR"] = '1'
-    os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
-    os.environ['QT_ENABLE_HIGHDPI_SCALING'] = '1'
     app.setWindowIcon(QIcon(os.path.join(working_path, 'icons/main.ico')))
     share = QSharedMemory()
     share.setKey("greencrm_mainwindow")#
