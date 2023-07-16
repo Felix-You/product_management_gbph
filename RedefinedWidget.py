@@ -1009,7 +1009,7 @@ class CheckableComboBox(QtWidgets.QComboBox):
         self.changed = False
         self.checkedItems = []
         self.checkedIndexes = []
-        self.checkedText = []
+        self.checkStatus = []
 
     def addItems(self, item_list: list):
         if not item_list:
@@ -1076,10 +1076,10 @@ class CheckableComboBox(QtWidgets.QComboBox):
     def getCheckItem(self):
         # getCheckItem方法可以获得选择的项目列表，自动调用。
         self.checkedItems = []
-        for index in range(1, self.count()):
+        checkIndex = self.getCheckIndex()
+        for index in checkIndex:
             item = self.model().item(index)
-            if item.checkState() == QtCore.Qt.Checked:
-                self.checkedItems.append(item.text())
+            self.checkedItems.append(item.text())
         # print("self.checkedItems为：",self.checkedItems)
         # self.lineEdit().setText(','.join(self.checkedItems))
         return self.checkedItems  # 实例化的时候直接调用这个self.checkedItems就能获取到选中的值，不需要调用这个方法，方法会在选择选项的时候自动被调用。
@@ -1097,14 +1097,14 @@ class CheckableComboBox(QtWidgets.QComboBox):
 
     def getCheckStatus(self):
         # 返回所有项目的勾选状态
-        check_status = []
-        self.checkedText = []
+        self.checkStatus.clear()
         check_index = self.getCheckIndex()
-        if len(check_index) == 0:  # 全不选，视为放弃使用此筛选，返回None
+        if len(check_index) == 0:  # 全不选，视为放弃使用此筛选，返回空tuple
             return ()
-        for index in range(1, self.count()):
-            item = self.model().item(index)
-            check_status.append(item.checkState() == QtCore.Qt.Checked)
+        check_status = [0] * self.count()
+        for index in check_index:
+            check_status[index] = 1
+        self.checkStatus = check_status
         return tuple(check_status)
 
     def setCheckStatus(self, check_status):
@@ -1988,7 +1988,8 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
         self.model = model
         self.drag_drop_enabled = drag_drop_enabled
         self.isCritial_slideButton = SliderButton(parent=self, fontText='紧急')
-        scaling_ratio  = min(1, DataView.DF_Ratio)
+        # scaling_ratio  = min(1, DataView.DF_Ratio)
+        scaling_ratio = DataView.FIX_SIZE_WIDGET_SCALING
         size = QtCore.QSize(50 *scaling_ratio, 24 * scaling_ratio)
         self.isCritial_slideButton.setFixedSize(size)
         self.isCritial_slideButton.setColourChecked(GColour.getAlphaColor(GColour.TaskColour.TaskIsCritial, 180))
@@ -2149,7 +2150,7 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
     def dragEnterEvent(self, a0: QtGui.QDragEnterEvent) -> None:
         if not self.drag_drop_enabled:
             return
-        a0.accept()
+        a0.accept() # this event is propogated to the todounit_widget from the children widgets
 
     # def dropEvent(self, a0: QtGui.QDropEvent) -> None:
     #     pass
@@ -2219,15 +2220,20 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
         pass
 
 class EmptyDropFrame(QFrame):
-
+    '''container for todo_widget'''
     def __init__(self, parent_view):
         super(EmptyDropFrame, self).__init__()
+        self.setObjectName('outer_frame')
+        layout = QtWidgets.QHBoxLayout()
+        layout.setContentsMargins(4, 1, 4, 1)
+        self.setLayout(layout)
         self.parent_view = parent_view
         self.setAcceptDrops(True)
 
     def dragEnterEvent(self, a0: QtGui.QDragEnterEvent) -> None:
         a0.accept()
         pass
+
     def dropEvent(self, a0: QtGui.QDropEvent):
         if a0.source() is self:
             return
@@ -2239,7 +2245,6 @@ class EmptyDropFrame(QFrame):
         # self.parent.todo_view.handleTodoUnitDrop(source_id, target_id)
         self.parent_view.on_empty_frame_drop(mime_data, self)
         return
-
 class ToDoUnitCreateDialog(QtWidgets.QDialog):
     def __init__(self, company_id: str = None, conn_project_id: str = None, conn_task_id: str = None,
                  parent=None, presenter = None):

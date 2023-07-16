@@ -121,7 +121,7 @@ class TodoViewTabBar(QTabBar,Ui_Form):
         return tuple(check_status)
 
     def on_urgence_range_change(self):
-        print('sender',self.sender())
+        # print('sender',self.sender())
         self.urgence_range = self.get_urgence_range()
         self.on_check_status_change()
 

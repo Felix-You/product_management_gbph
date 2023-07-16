@@ -466,6 +466,7 @@ class ProjectType(DataObject):
         self.highlight = False
         self.form_classification = None
         self.current_progress = None
+        self._has_active_task_critical = None
         # self.current_pricing = None
         # self.current_demand = None
         # self.rival_pricing = None
@@ -612,7 +613,6 @@ class ProjectProfile(DataObject):
         self.rld = None
         self.rld_id = None  # 参比
         self.specs = None  # 规格
-
         super(ProjectProfile, self).__init__()
 
 
@@ -713,11 +713,15 @@ class Project(ProjectType):
             self.tasks.append(temp_task)
             task_ids.append(temp_task._id)
 
-    def is_active_task_critical(self, project_id:str = None):
+    @property
+    def has_active_task_critical(self, project_id:str = None):
         if not project_id:
             project_id = self._id
         if not project_id:
             raise ValueError('project_id should be a str, not None.')
+        if not self._has_active_task_critical is None:
+            return self._has_active_task_critical
+
         proj_task_in_act = CS.innerJoin_withList_getLines('tasks', 'todo_log', '_id', 'conn_task_id',
                                                           ['conn_project_id', 'is_critical'], ['status', 'destroyed'],
                                                           {'conn_project_id': project_id, 'is_critical': 1}, {'destroyed':0, 'status': [0, 1]},
@@ -726,7 +730,15 @@ class Project(ProjectType):
         for conn_project_id, is_critical, status, destroyed in proj_task_in_act:
             if is_critical and status is not None and status < 2 and not destroyed:
                 critial_in_act += 1
-        return
+        if critial_in_act > 0:
+            self._has_active_task_critical = True
+        else:
+            self._has_active_task_critical = False
+        return self._has_active_task_critical
+
+    @has_active_task_critical.setter
+    def has_active_task_critical(self, a0:bool):
+        self._has_active_task_critical = a0
 
     def load_task_todo_status(self):
         task_ids = [task._id for task in self.tasks]

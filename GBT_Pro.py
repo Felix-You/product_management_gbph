@@ -150,6 +150,7 @@ def close_window(window):
 
 
 class GlobalApplication(QApplication):
+
     def notify(self, a0: QtCore.QObject, a1: QtCore.QEvent) -> bool:
         # objMeta = a0.metaObject()
         # clName = objMeta.className()

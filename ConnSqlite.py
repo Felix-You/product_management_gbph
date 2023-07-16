@@ -1,3 +1,4 @@
+
 import json
 import sqlite3, requests, importlib
 import time
@@ -366,7 +367,7 @@ def renderConditionExpression(condition:dict, join_table_mark:str=None)-> [str,t
 def innerJoin_withList_getLines(table_a:str, table_b:str,
                                 joint_key_a:str, joint_key_b:str,
                                 target_colums_a:list[str], target_colunms_b:list[str],
-                                condition_a:dict=None, condition_b:dict=None,
+                                condition_a:dict=None, condition_b:dict=None, condition_c:dict=None,
                                 method:str = 'inner join'):
     '''
     method: "inner join", "left outer join"/"left join" or  "cross join"
@@ -430,6 +431,114 @@ def innerJoin_withList_getLines(table_a:str, table_b:str,
               "on a.{joint_key_a} = b.{joint_key_b} "\
               .format(targets=targets_sentence, table_a=table_a, table_b=table_b, join_method=method,
                       joint_key_a=joint_key_a, joint_key_b=joint_key_b)
+        # print(sql)
+        try:
+            result = cx.execute(sql).fetchall()
+            # print(result)
+        except Exception as e:
+            print('查找失败')
+            result = None
+            print(e)
+    return result
+
+
+def triple_innerJoin_withList_getLines(table_a:str, table_b:str, table_c:str,
+                                target_colums_a:list[str], target_colunms_b:list[str], target_colunms_c:list[str],
+                                joint_key_a_b:tuple[str,str], joint_key_a_c: tuple[str,str] = None, joint_key_b_c:tuple[str,str] = None,
+                                condition_a:dict=None, condition_b:dict=None, condition_c:dict=None,
+                                method:str = 'inner join'):
+    '''
+    One and only one of joint_key_a_c and joint_key_b_c should to be None.
+    method: "inner join", "left outer join"/"left join" or  "cross join"
+    '''
+    if not method in ('inner join', 'left outer join', 'left join', 'cross join'):
+        raise ValueError(f'invalid method {method}')
+    if not (joint_key_a_b and joint_key_a_c) or (joint_key_a_b and joint_key_b_c) or (joint_key_a_c and joint_key_b_c):
+        raise ValueError('Only one of joint_key_a_b, joint_key_a_c and target_colunms_c is allowed to be None.')
+    if not condition_a:
+        condition_a = {}
+    if not condition_b:
+        condition_b = {}
+    if not condition_c:
+        condition_c = {}
+    condition_sentence_a, condition_values_a = renderConditionExpression(condition_a, 'a')
+    condition_sentence_b, condition_values_b = renderConditionExpression(condition_b, 'b')
+    condition_sentence_c, condition_values_c = renderConditionExpression(condition_c, 'c')
+
+    condition_sentences = []
+    if condition_sentence_a:
+        condition_sentences.append(condition_sentence_a)
+    if condition_sentence_b:
+        condition_sentences.append(condition_sentence_b)
+    if condition_sentence_c:
+        condition_sentences.append(condition_sentence_c)
+    condition_sentence = 'and'.join(condition_sentences)
+    if condition_sentences:
+        condition_values = condition_values_a + condition_values_b + condition_values_c
+    else:
+        condition_values = ()
+
+    target_expression_a = ['a' + '.'+column for column in target_colums_a]
+    target_expression_b = ['b' + '.'+column for column in target_colunms_b]
+    target_expression_c = ['c' + '.' + column for column in target_colunms_c]
+    target_expression = target_expression_a
+    target_expression.extend(target_expression_b)
+    target_expression.extend(target_expression_c)
+    targets_sentence = ', '.join(target_expression)
+
+    if not joint_key_b_c:
+        alias_1 = 'a'
+        alias_2 = 'b'
+        alias_3 = 'a'
+        alias_4 = 'c'
+        joint_key_1 = joint_key_a_b[0]
+        joint_key_2 = joint_key_a_b[1]
+        joint_key_3 = joint_key_a_c[0]
+        joint_key_4 = joint_key_a_c[1]
+    else:
+        alias_1 = 'a'
+        alias_2 = 'b'
+        alias_3 = 'b'
+        alias_4 = 'c'
+        joint_key_1 = joint_key_a_b[0]
+        joint_key_2 = joint_key_a_b[1]
+        joint_key_3 = joint_key_b_c[0]
+        joint_key_4 = joint_key_b_c[1]
+
+    if condition_values:
+        sql = "SELECT {targets} "\
+              "FROM {table_a} AS a "\
+              "{join_method} {table_b} AS b "\
+              "ON {alias_1}.{joint_key_1} = {alias_2}.{joint_key_2} "\
+              "{join_method} {table_c} AS c "\
+              "ON {alias_3}.{joint_key_3} = {alias_4}.{joint_key_4} "\
+              "WHERE {condition_sentence};"\
+              .format(targets=targets_sentence, table_a=table_a, table_b=table_b,table_c=table_c,
+                      alias_1 =alias_1 ,alias_2=alias_2,alias_3=alias_3,alias_4=alias_4,
+                      joint_key_1=joint_key_1, joint_key_2=joint_key_2,joint_key_3=joint_key_3,joint_key_4=joint_key_4,
+                     join_method=method, condition_sentence_a=condition_sentence_a,
+                     condition_sentence=condition_sentence)
+        # sql = sql % condition_values
+        # print(sql)
+        try:
+            result = cx.execute(sql, condition_values).fetchall()
+
+            # print(result)
+        except Exception as e:
+            print('查找失败')
+            result = None
+            print(e)
+    else:
+        sql = "SELECT {targets} "\
+              "FROM {table_a} AS a "\
+              "{join_method} {table_b} AS b "\
+              "ON {alias_1}.{joint_key_1} = {alias_2}.{joint_key_2} "\
+              "{join_method} {table_c} AS c "\
+              "ON {alias_3}.{joint_key_3} = {alias_4}.{joint_key_4}; "\
+              .format(targets=targets_sentence, table_a=table_a, table_b=table_b,table_c=table_c,
+                      alias_1 =alias_1 ,alias_2=alias_2,alias_3=alias_3,alias_4=alias_4,
+                      joint_key_1=joint_key_1, joint_key_2=joint_key_2,joint_key_3=joint_key_3,joint_key_4=joint_key_4,
+                     join_method=method, condition_sentence_a=condition_sentence_a)
         # print(sql)
         try:
             result = cx.execute(sql).fetchall()
@@ -657,6 +766,9 @@ def drugData(func_name:str, *args, **kwargs):
 
 
 if __name__ == '__main__':
+
+
+
     # tables = ['client_log','clients', 'manufacturers', 'product_market_info', 'product_marketing','product_supply','product_supply_detail','proj_list',
     #           'project_meeting_log','project_memo_log','supplier_log','suppliers','tasks','thera_area']
     # for table in tables:

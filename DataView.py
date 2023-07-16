@@ -1,4 +1,5 @@
 import json
+import logging
 import math
 from typing import Union
 from core.GlobalListener import global_logger
@@ -124,7 +125,8 @@ screen_real_vResolution = win32print.GetDeviceCaps(hDC, win32con.DESKTOPVERTRES)
 # size_h , size_v = get_scr_size()
 
 DF_Ratio = win32api.GetSystemMetrics(0)/BASE_H_RESOLUTION # 开发时使用的屏幕分辨率为1600*900,缩放比1.0
-
+FIX_SIZE_WIDGET_SCALING = 1
+CONTENT_TEXT_SCALING = 1
 # DF_Ratio = int_yield_num(DF_Ratio) # python3.10 does not cast float to int
 
 USER_COMPANY_NAME = '广州国标检验检测有限公司'
@@ -163,9 +165,8 @@ class ResolutionAdaptor():
         # self.ratio_wid = int_yield_num((screen_real_hResolution / 1600) /scaleRate)
         self.ratio_wid = int_yield_num(screen_logical_width / BASE_H_RESOLUTION)
         # self.ratio_wid = screen_real_hResolution / 1600
-        global DF_Ratio,FIX_SIZE_WIDGET_SCALING
+        global DF_Ratio, FIX_SIZE_WIDGET_SCALING, CONTENT_TEXT_SCALING
         DF_Ratio = int_yield_num(self.ratio_wid)
-        # HARD_FIX_SIZE_WIDGET_SCALING = (screen_logical_width / DPI)
         HARD_FIX_SIZE_WIDGET_SCALING = DPI / BASE_DPI # the scaling factor to keep widget in identical physical metrics
 
         # FIX_SIZE_WIDGET_SCALING is used for widgets that should basically keep their physical metrics on different devices,
@@ -173,14 +174,20 @@ class ResolutionAdaptor():
 
         # FIX_SIZE_WIDGET_SCALING is caculated from an adjusted sigmoid curve which has the maximum slope .
         # when _DF_Ratio == 1, and a symmetry center at (1, 1), and value range(0, 2)
-        _DF_Ratio = float(DF_Ratio) * HARD_FIX_SIZE_WIDGET_SCALING
-        x_1 = _DF_Ratio - 1 # Symmetry center at (1, 1), when _DF_Ratio == 1
-        x_2 = x_1 * 0.5 * (math.exp(-4 * abs(x_1)) + 1) # non-linear scaling of the x-axis, making the slope of the
-                                                        # sigmoid curve flatter , except for the symmetry center.
-        FIX_SIZE_WIDGET_SCALING = 2 * (sigmoid(1.5 * x_2) - 0.5) + 1 # Adjusted sigmoid curve, which has a maximum slope of 1
-                                                                   # when _DF_Ratio == 1, and a symmetry center at (1, 1), and value range(0, 2)
 
+        _DF_Ratio = float(DF_Ratio) * HARD_FIX_SIZE_WIDGET_SCALING
+        # _DF_Ratio = 3
+        if _DF_Ratio >= 1:
+            x_1 = _DF_Ratio - 1 # Symmetry center at (1, 1), when _DF_Ratio == 1
+            x_2 = x_1 * (0.8 * math.exp(-2 * abs(x_1)) + 0.2) # non-linear scaling of the x-axis, making the slope of the
+                                                            # sigmoid curve flatter , except for the symmetry center.
+            FIX_SIZE_WIDGET_SCALING = 4 * (sigmoid(1 * x_2) - 0.5) + 1 # Adjusted sigmoid curve, which has a maximum slope of 1
+                                                                       # when _DF_Ratio == 1, and a symmetry center at (1, 1), and value range(0, 2)
+        else:
+            FIX_SIZE_WIDGET_SCALING = 0.5 + 0.5 * _DF_Ratio**2
         FIX_SIZE_WIDGET_SCALING = int_yield_num(FIX_SIZE_WIDGET_SCALING)
+        CONTENT_TEXT_SCALING = max(0.9, FIX_SIZE_WIDGET_SCALING)
+        CONTENT_TEXT_SCALING = int_yield_num(CONTENT_TEXT_SCALING)
         global_logger.debug('FIX_SIZE_WIDGET_SCALING={}'.format(FIX_SIZE_WIDGET_SCALING))
         # self.ratio_wid = screen_real_hResolution / 1600
         # if self.ratio_wid < 1:
@@ -697,6 +704,7 @@ class OverView(View):
                     new_project.assign_data(tuple(cmd.fields_values.keys()),tuple(cmd.fields_values.values()))
                     new_project.resetWeight()#重置project权重
                     new_project.status_code = cmd.status_code
+                    new_project.has_active_task_critical = False
                     client.projects.append(new_project)
                     if source_widget is self.bound_widget:
                         return
@@ -706,7 +714,7 @@ class OverView(View):
                     for j, project in enumerate(client.projects):
                         if project_id == project._id:
                             if cmd.operation == 1:#update
-                                project.assign_data(list(cmd.fields_values.keys()),list(cmd.fields_values.values()))
+                                project.assign_data(list(cmd.fields_values.keys()), list(cmd.fields_values.values()))
                                 if self.accept_state.accept_complete:
                                     project.resetWeight()#project权重
                             elif cmd.operation == 4:#delete
@@ -1624,16 +1632,15 @@ class CompanyEidtorView(View):
         self.tab_bar.deleteLater()
         del self
 
-class TodoUnitView(View):
 
+class TodoUnitView(View):
     def __init__(self, parent = None,  parent_view = None):
         super(TodoUnitView, self).__init__()
         self.parent = parent
         self.parent_view = parent_view# todo_view
         self.todoWidget = None
         self.model = ToDo()
-        self.Todo_Font_Style = 'font-family:Microsoft YaHei; font-weight:405; font-size: 9pt'
-        pass
+        self.Todo_Font_Style = 'font-family:Microsoft YaHei; font-weight:405; font-size: %spt'%(9*CONTENT_TEXT_SCALING)
 
     def conclusionDoubleClickEvent(self, obj, e):
         data_json = self.model.conclusion_desc
@@ -1675,7 +1682,7 @@ class TodoUnitView(View):
                            'border-radius:7px; border-style: solid;border-color: '
                            'qlineargradient(spread:pad, x1:0.5, y1:1, x2:0.5, y2:0, stop:0 rgba(180, 220, 255, 205), stop:1 rgba(151, 201, 252, 205));}'
                            'QLabel{border-width: 0px; background:transparent;}'
-                           'QTextEdit{font-family:Microsoft YaHei; font-size: 8pt;border-width: 2px; border-style:dashed; border-color: rgba(150, 150, 150, 40)}'
+                           'QTextEdit{font-family:Microsoft YaHei; font-size: %spt;border-width: 2px; border-style:dashed; border-color: rgba(150, 150, 150, 40)}'
                            'QLineEdit{background:transparent;border-color: rgba(150, 150, 150, 150)}'
                            'QScrollBar:vertical{width: 4px;background:transparent;border: 0px;margin: 0px 0px 0px 0px;}'
                            'QScrollBar::handle:vertical{background:transparent; border-radius:2px;}'
@@ -1684,12 +1691,32 @@ class TodoUnitView(View):
                                       'height:0px;width:0px;subcontrol-position:bottom;subcontrol-origin: margin;}'
                            'QScrollBar::sub-line:vertical{background: transparent;margin: 0px;border-width: 0px;'
                                       'height:0px;width:0px;subcontrol-position:top;subcontrol-origin: margin;}'
-                           '#pushButton_company,#pushButton_project{border-style: solid;border-top-color: qlineargradient(spread:pad, x1:0.5, y1:1, x2:0.5, y2:0, stop:0 rgb(215, 215, 215), stop:1 rgb(222, 222, 222));	border-right-color: qlineargradient(spread:pad, x1:0, y1:0.5, x2:1, y2:0.5, stop:0 rgb(217, 217, 217), stop:1 rgb(227, 227, 227));border-left-color: qlineargradient(spread:pad, x1:0, y1:0.5, x2:1, y2:0.5, stop:0 rgb(227, 227, 227), stop:1 rgb(217, 217, 217));border-bottom-color: qlineargradient(spread:pad, x1:0.5, y1:1, x2:0.5, y2:0, stop:0 rgb(215, 215, 215), stop:1 rgb(222, 222, 222));'
-                                      'border-width: 0px;border-radius: 0px;color: #202020;text-align: left;font-family: Microsoft YaHei;font:bold;font-size:7pt;'
+                           '#pushButton_company,#pushButton_project{border-style: solid;border-top-color: '
+                           'qlineargradient(spread:pad, x1:0.5, y1:1, x2:0.5, y2:0, stop:0 rgb(215, 215, 215), '
+                           'stop:1 rgb(222, 222, 222));	border-right-color: qlineargradient(spread:pad, x1:0, y1:0.5, '
+                           'x2:1, y2:0.5, stop:0 rgb(217, 217, 217), stop:1 rgb(227, 227, 227));'
+                           'border-left-color: qlineargradient(spread:pad, x1:0, y1:0.5, x2:1, y2:0.5, '
+                           'stop:0 rgb(227, 227, 227), stop:1 rgb(217, 217, 217));'
+                           'border-bottom-color: qlineargradient(spread:pad, x1:0.5, y1:1, x2:0.5, y2:0, '
+                           'stop:0 rgb(215, 215, 215), stop:1 rgb(222, 222, 222));'
+                                      'border-width: 0px;border-radius: 0px;color: #202020;text-align: '
+                           'left;font-family: Microsoft YaHei;font:bold;font-size:%spt;'
                                       'padding: 0px;background-color: rgba(220,220,220,0);}'
-                            '#pushButton_company:hover,#pushButton_project:hover{border-style: solid;border-top-color: qlineargradient(spread:pad, x1:0.5, y1:1, x2:0.5, y2:0, stop:0 rgb(215, 215, 215), stop:1 rgb(222, 222, 222));	border-right-color: qlineargradient(spread:pad, x1:0, y1:0.5, x2:1, y2:0.5, stop:0 rgb(217, 217, 217), stop:1 rgb(227, 227, 227));border-left-color: qlineargradient(spread:pad, x1:0, y1:0.5, x2:1, y2:0.5, stop:0 rgb(227, 227, 227), stop:1 rgb(217, 217, 217));border-bottom-color: qlineargradient(spread:pad, x1:0.5, y1:1, x2:0.5, y2:0, stop:0 rgb(215, 215, 215), stop:1 rgb(222, 222, 222));'
-                                      'border-width: 1px;border-radius: 5px;color: #202020;text-align: left;font-family: Microsoft YaHei;font:bold;font-size:7pt;'
-                                      'padding: 0px;background-color: rgb(200,225,255);}')
+                            '#pushButton_company:hover,#pushButton_project:hover{border-style: solid;'
+                           'border-top-color: qlineargradient(spread:pad, x1:0.5, y1:1, x2:0.5, y2:0, '
+                           'stop:0 rgb(215, 215, 215), stop:1 rgb(222, 222, 222));	'
+                           'border-right-color: qlineargradient(spread:pad, x1:0, y1:0.5, x2:1, y2:0.5, '
+                           'stop:0 rgb(217, 217, 217), stop:1 rgb(227, 227, 227));'
+                           'border-left-color: qlineargradient(spread:pad, x1:0, y1:0.5, x2:1, y2:0.5, '
+                           'stop:0 rgb(227, 227, 227), stop:1 rgb(217, 217, 217));'
+                           'border-bottom-color: qlineargradient(spread:pad, x1:0.5, y1:1, x2:0.5, y2:0, '
+                           'stop:0 rgb(215, 215, 215), stop:1 rgb(222, 222, 222));'
+                            'border-width: 1px;border-radius: 5px;color: #202020;text-align: left;'
+                           'font-family: Microsoft YaHei;font:bold;font-size:%spt;'
+
+
+                                      'padding: 0px;background-color: rgb(200,225,255);}'%(8*CONTENT_TEXT_SCALING, 7*CONTENT_TEXT_SCALING, 7*FIX_SIZE_WIDGET_SCALING))
+
         #buttons signal
         if self.model.conn_company_name:
             self.todoWidget.pushButton_company.setText(self.model.conn_company_name)
@@ -1726,25 +1753,50 @@ class TodoUnitView(View):
         self.todoWidget.textEdit_2.customContextMenuRequested.connect(lambda :self.showRightMenu(text_pad=self.todoWidget.textEdit_2))
         self.todoWidget.lineEdit.editingFinished.connect(self.on_slider_close)
         self.todoWidget.lineEdit.setEnabled(False)
-
         #根据字段参数初始化各个参数控件
         # today = datetime.datetime.today().date()
         if self.model.on_pending:
             self.todoWidget.pushButton_4.setChecked(True)
         if self.model.pending_till_date:
+
+
             pending_days = (datetime.datetime.strptime(str(self.model.pending_till_date), '%Y-%m-%d').date()\
+
+
                             - datetime.datetime.today().date()).days
+
+
             #datetime两个日期相减得到的数字是实际数字相减的结果
+
+
             if pending_days > 0:
+
+
                 self.todoWidget.lineEdit.setText(str(pending_days))
+
+
                 self.todoWidget.label.setText(self.model.pending_till_date)
+
+
                 self.todoWidget.lineEdit.setEnabled(True)
+
+
                 self.todoWidget.pushButton_5.setEnabled(True)
+
+
             else:
+
+
                 self.todoWidget.lineEdit.setText('')
+
+
                 self.todoWidget.label.setText('')
         else:
+
+
             self.todoWidget.lineEdit.setText('')
+
+
             self.todoWidget.label.setText('')
         self.todoWidget.isCritial_slideButton.setChecked(self.model.is_critical)
         self.todoWidget.todoStatus_triSlideButton.setCheckstatus(self.model.status)
@@ -1773,7 +1825,6 @@ class TodoUnitView(View):
         else:
             self.todoWidget.textEdit.setStyleSheet('#textEdit{%s}'%self.Todo_Font_Style)
             self.style = self.todoWidget.textEdit.styleSheet()
-
         if self.model.is_critical:
             self.todoWidget.textEdit.setStyleSheet('#textEdit{background:rgb%s; '
                                                    '%s}'%(str(getAlphaColor(GColour.TaskColour.TaskIsCritial, 180)),self.Todo_Font_Style))
@@ -1790,15 +1841,12 @@ class TodoUnitView(View):
         if textEditWidget.isReadOnly():#未进行内容修改
             return
         textEditWidget.setReadOnly(True)
-        #
         if textEditWidget is self.todoWidget.textEdit:
             self.model.todo_desc = textEditWidget.toPlainText()
             # textEditWidget.setText(self.model.todo_desc)
         elif textEditWidget is self.todoWidget.textEdit_2:#conclusion
             self.model.conclusion_desc = textEditWidget.toPlainText()
             # textEditWidget.setText()
-        #
-
         self.updateConnData()
 
     def on_conclusion_desc_update(self, json_data:str):
@@ -1854,7 +1902,8 @@ class TodoUnitView(View):
         self.model.saveBasicData()
 
     def on_pending_activated(self):
-        self.slider = RedefinedWidget.MySlider(attachedWidget=self.todoWidget.pushButton_4,attachedView=self,parent=self.todoWidget.groupBox)
+        self.slider = RedefinedWidget.MySlider(attachedWidget=self.todoWidget.pushButton_4,
+                                               attachedView=self,parent=self.todoWidget.groupBox)
         self.slider.setRange(1,35)
         self.todoWidget.pushButton_4.setChecked(True)
         if self.todoWidget.lineEdit.text() == '':
@@ -1941,7 +1990,6 @@ class TodoUnitView(View):
     def showRightMenu(self,text = None,text_pad = None):
         text = text_pad.textCursor().selectedText()
         menu = QtWidgets.QMenu(parent=self.parent)
-
         if text_pad:
             allText = text_pad.toPlainText()
             copyAction = menu.addAction('复制')
@@ -1969,7 +2017,6 @@ class TodoUnitView(View):
         seven_day_delay = menu.addAction('延后7天')
         fifteen_day_delay = menu.addAction('延后15天')
         thirty_day_delay = menu.addAction('延后30天')
-
         one_day_delay.triggered.connect(lambda :self.direct_set_pending_date(1))
         three_day_delay.triggered.connect(lambda :self.direct_set_pending_date(3))
         next_week_delay.triggered.connect(lambda :self.direct_set_pending_date(7-day))
@@ -1995,11 +2042,17 @@ class TodoUnitView(View):
 
 def strongMaskTuple(tp_0:tuple, tp_1:tuple):
     '''比较两个元组的成员，只要发现一个相同位置成员同时为True，即返回True'''
-    for i in range(len(tp_0)):
-        if tp_0[i] and tp_1[i]:
-          return True
-    else:
-        return False
+    tp_0 = map(str, map(int, tp_0))
+    tp_1 = map(str, map(int, tp_1))
+    b1 = int(''.join(tp_0), 2)
+    b2 = int(''.join(tp_1), 2)
+    return b1 & b2
+    # for i in range(len(tp_0)):
+    #     if tp_0[i] and tp_1[i]:
+    #       return True
+    # else:
+    #     return False
+
 
 class ToDoView(View):
     ARRANGE_WEIGHT = 0
@@ -2039,24 +2092,73 @@ class ToDoView(View):
     def initAllData(self):
         pass
 
-    def setDataModel(self,condition: dict=None):
-        self.units.clear()# self.units就是最后准备渲染的全部单元
+    def setDataModel(self, condition: dict=None):
+        self.units.clear() # self.units就是最后准备渲染的全部单元
         self.units_for_render.clear()
         self.units_for_render = self.units
-        get_pending = self.check_status[0][0]# to_do.pending_date - today
-        mask = self.check_status[3]# 掩码用于筛选comboBox所选的类型 # project
-        condition =  self.handleSearchCondition(condition)
+        get_pending = self.check_status[0][0] # to_do.pending_date - today
+        mask = self.check_status[3] # 掩码用于筛选comboBox所选的类型 # project
+        condition = self.handleSearchCondition(condition)
+        todo_fields = ['_id', 'conn_task_id', 'todo_desc', 'status','on_pending', 'pending_till_date', 'is_critical',
+                       'conclusion_desc', 'waiting_desc', 'create_time', 'destroyed', 'inter_order_weight',
+                       'conn_project_id', 'conn_company_id', 'officejob_type']
+        project_fields = ['product', 'client', 'client_id', 'order_tobe', 'weight', 'in_act', 'clear_chance',
+                          'highlight']
+        company_fields = ['short_name']
+        task_fields = ['officejob_type']
         todo_logs = CS.getLinesFromTable('todo_log', conditions=condition, order=['inter_order_weight'])
-        # if not todo_logs:
-        #     QMessageBox.about(self.parent, '未找到', '没有符合条件的追踪项目！')
-        #     return
+        combined_todo_logs = CS.triple_innerJoin_withList_getLines(
+            'todo_log', 'proj_list', 'clients',
+            target_colums_a=todo_fields, target_colunms_b=project_fields, target_colunms_c=company_fields,
+            joint_key_a_b=('conn_project_id', '_id'), joint_key_a_c=('conn_company_id', '_id'),
+            condition_a=condition, method='left join')
         keys = todo_logs.pop()
-        # indexes = range(len(keys))
 
+        # load extra information about todo_units
+        index_todo_id = keys.index('_id')
+        index_project_id = keys.index('conn_project_id')
+        index_company_id = keys.index('conn_company_id')
+        index_task_id = keys.index('conn_task_id')
+        dict_todo_project = {}
+        dict_todo_company = {}
+        dict_todo_task = {}
+
+        for log in todo_logs:
+            if conn_project_id := log[index_project_id] :
+                dict_todo_project[log[index_todo_id]] = conn_project_id
+            if conn_company_id := log[index_company_id]:
+                dict_todo_company[log[index_todo_id]] = conn_company_id
+            if conn_task_id := log[index_task_id] :
+                dict_todo_task[log[index_todo_id]] = conn_task_id
+
+        project_ids = list(dict_todo_project.values())
+        company_ids = list(dict_todo_company.values())
+        task_ids = list(dict_todo_task.values())
+
+        project_fields = ['_id','product', 'client', 'client_id', 'order_tobe', 'weight', 'in_act','is_deal', 'clear_chance', 'highlight']
+        project_logs  = CS.getLinesFromTable('proj_list', conditions = {'_id': project_ids}, columns_required= project_fields)
+        project_dict = {}
+        for project_log in project_logs:
+            project_dict[project_log[0]] = project_log
+
+        company_fields = ['_id', 'short_name']
+        company_logs = CS.getLinesFromTable('clients', conditions = {'_id': company_ids}, columns_required=company_fields)
+        company_dict = {}
+        for company_log in company_logs:
+            company_dict[company_log[0]] = company_log
+
+        task_fields = ['_id', 'officejob_type']
+        task_logs = CS.getLinesFromTable('tasks', {'_id': task_ids}, columns_required=task_fields)
+        task_dict = {}
+        for task_log in task_logs:
+            task_dict[task_log[0]] = task_log
+
+        # indexes = range(len(keys))
         # 根据get_pending 和延期到的日期来确定要保留的任务
         j = 0
         before_create_units = time.perf_counter()
         for i, log in enumerate(todo_logs):
+            todo_id = log[index_todo_id]
             pending_till_date = log[keys.index('pending_till_date')]
             if get_pending == 0:# 获取到期的任务
                 if not pending_till_date:# 不存在延期，保留
@@ -2083,25 +2185,59 @@ class ToDoView(View):
             before_create_unit = time.perf_counter()
             todo_unit = TodoUnitView(parent=self.parent ,parent_view=self)
             todo_unit.model.assign_data(keys=keys, values=log)
-            todo_unit.model.loadConnProjectInfo()
+
+            if todo_id in dict_todo_project.keys():
+                conn_project_id = dict_todo_project[todo_id]
+                project_log = project_dict[conn_project_id]
+                project = dict(zip(project_fields, project_log))
+                todo_unit.model.conn_project_name = project['product']
+                todo_unit.model.conn_company_name = project['client']
+                todo_unit.model.conn_company_id = project['client_id']
+                todo_unit.model.conn_project_order_tobe = project['order_tobe']
+                todo_unit.model.conn_project_weight = project['weight']
+                todo_unit.model.conn_project_in_act = project['in_act']
+                todo_unit.model.conn_project_clear_chance = project['clear_chance']
+                todo_unit.model.conn_project_highlight = project['highlight']
+                todo_unit.model.conn_project_is_deal = project['is_deal']
+
+            if todo_id in dict_todo_company and todo_unit.model.conn_company_name is None:
+                conn_company_id = dict_todo_company[todo_id]
+                company_log = company_dict[conn_company_id]
+                todo_unit.model.conn_company_name = company_log[1]
+
+            if todo_id in dict_todo_task.keys():
+                conn_task_id = dict_todo_task[todo_id]
+                task_log = task_dict.get(conn_task_id, None)
+                if task_log is not None:
+                    todo_unit.model.conn_task_cat = task_log[1]
+
             if not mask:
                 pass
             elif mask and reduce(mul, mask) == 1:
                 pass
             else:
-                maskee = (todo_unit.model.conn_project_is_deal ,
-                          todo_unit.model.conn_project_order_tobe, todo_unit.model.conn_project_clear_chance,
-                          todo_unit.model.conn_project_highlight, todo_unit.model.conn_project_in_act,
-                          not (todo_unit.model.conn_project_is_deal or todo_unit.model.conn_project_order_tobe or
-                               todo_unit.model.conn_project_clear_chance or todo_unit.model.conn_project_highlight or
-                               todo_unit.model.conn_project_in_act or not bool(todo_unit.model.conn_project_id)),
+                maskee = (todo_unit.model.conn_project_is_deal ,todo_unit.model.conn_project_order_tobe,
+                          todo_unit.model.conn_project_clear_chance, todo_unit.model.conn_project_highlight,
+                          todo_unit.model.conn_project_in_act,
+                          not (todo_unit.model.conn_project_is_deal or
+                               todo_unit.model.conn_project_order_tobe or
+                               todo_unit.model.conn_project_clear_chance or
+                               todo_unit.model.conn_project_highlight or
+                               todo_unit.model.conn_project_in_act or
+                               not bool(todo_unit.model.conn_project_id)),
                           not bool(todo_unit.model.conn_project_id))
-                if not strongMaskTuple(mask, maskee):
+                global_logger.debug('maskee:{}'.format(maskee))
+                global_logger.debug('mask:{}'.format(mask))
+                if not strongMaskTuple(mask, maskee): # if only one positional condition matches
                     continue
             j += 1
-            time_before_todo_unitWidget = time.perf_counter()
+            before_todo_unitWidget = time.perf_counter()
             todo_unit.setWidget()
+            after_todo_unitWidget = time.perf_counter()
+            print('time_for_render_todowidget:', after_todo_unitWidget - before_todo_unitWidget)
             self.units.append(todo_unit)
+        after_create_units = time.perf_counter()
+        # print('time for creating all units:', after_create_units - before_create_units)
         # self.sortUnits()
 
         # for i, unit in enumerate(self.units):
@@ -2127,14 +2263,17 @@ class ToDoView(View):
 
     @staticmethod
     def setTableCellWidget(tablewidget:QtWidgets.QTableWidget, row, column, widget:QWidget):
-        frame = QFrame()
-        frame.setObjectName('outer_frame')
-        # frame.setContentsMargins(3, 0, 3, 0)
-        layout = QtWidgets.QHBoxLayout()
-        layout.setContentsMargins(4, 1, 4, 1)
+        frame = QtWidgets.QTableWidget.cellWidget(tablewidget, row, column)
+        layout = frame.layout()
+        item = layout.itemAt(0)
+        if item is not None:
+            _widget = item.widget()
+            layout.removeItem(item)
+            _widget.setParent(None)
         layout.addWidget(widget)
-        frame.setLayout(layout)
-        QtWidgets.QTableWidget.setCellWidget(tablewidget, row, column, frame)
+
+
+        # print('time_for_set_todowidget:', after_setCellWidget - before_setCellWidget)
 
     @staticmethod
     def tableCellWidget(tablewidget:QtWidgets.QTableWidget, row, column):
@@ -2158,16 +2297,6 @@ class ToDoView(View):
     @staticmethod
     def setTableCellAppearance(tablewidget:QtWidgets.QTableWidget, row, column, color, is_switching:bool):
         frame = QtWidgets.QTableWidget.cellWidget(tablewidget, row, column)
-        # c = color.convertTo(QColor.Rgb)
-        # c1 = color.toRgb()
-        # pal = frame.palette()
-        # pal.setColor(QPalette.Background, color)
-        # pal.setBrush(QPalette.Background, color)
-        # frame.setAutoFillBackground(True)
-        # frame.setPalette(pal)
-        # frame.update()
-        # frame.repaint()
-        # frame.show()
         frame.setStyleSheet('#outer_frame{background-color: rgba(%s,%s,%s, 200)}' % color)
         if is_switching:
             frame.layout().setContentsMargins(4, 3, 4, 1)
@@ -2345,13 +2474,16 @@ class ToDoView(View):
         return lst
 
     def renderMatrixColum(self, column_index: int):
-        col_mark = column_index % 2
+        col_mark = column_index % 2 # 标记是否换行
         key_field_value_old = ''
         sequence_mark = False
         for i, unit in enumerate(self.todo_view_matrix[column_index]):
-            unit.setWidget()
+            # unit.setWidget()
             self.todo_id_map.update({unit.model._id: (i, column_index)})
+            before_in = time.perf_counter()
             self.bound_widget.setCellWidget(i, column_index, unit.todoWidget)
+            after_set = time.perf_counter()
+            global_logger.debug("time_for_insert_todowidget{}".format(after_set-before_in))
             if self.arrange_strategy == self.ARRANGE_OFFI_TYPE:
                 secondary_key_field = self.leveled_key_alias_fields[1][0]
             else:
@@ -2374,22 +2506,30 @@ class ToDoView(View):
                        (235 - int(sequence_mark) * 10))
             self.bound_widget.setTableCellAppearance(i, column_index, rgb, is_switching=switching)
 
-
     def reRenderMatrixColumn(self, column_index:int):
+        # shape of former table
         former_len_col = self.bound_widget.rowCount()
         former_len_row = self.bound_widget.columnCount()
+        # shape of new table
         len_col = len(self.todo_view_matrix[column_index])
         new_len_col = max(former_len_col, len_col)
+
         if len_col > former_len_col:
             self.bound_widget.setRowCount(len_col)
             for i in range(former_len_col, new_len_col):
                 for j in range(former_len_row): # 填充新的空行
                     empty_frame = self.createEmptyFrame(i, j)
-                    self.bound_widget.setCellWidget(i,j, empty_frame)
+                    QtWidgets.QTableWidget.setCellWidget(self.bound_widget, i, j, empty_frame)
+
         for i in range(new_len_col): # 清空并填充列
             empty_frame = self.createEmptyFrame(i, column_index)
-            self.bound_widget.setCellWidget(i, column_index, empty_frame)
+            QtWidgets.QTableWidget.setCellWidget(self.bound_widget, i, column_index, empty_frame)
+
         self.renderMatrixColum(column_index)
+
+    def initCellWidget(self, row:int, column:int):
+        empty_frame = self.createEmptyFrame(row, column)
+        QtWidgets.QTableWidget.setCellWidget(self.bound_widget, row, column, empty_frame)
 
     def renderTableWidget(self, todo_view_matrix:list[list]):
         row_count = 0
@@ -2402,12 +2542,10 @@ class ToDoView(View):
         self.bound_widget.setRowCount(row_count)
         for i in range(row_count):
             for j in range(col_count):
-                empty_frame = self.createEmptyFrame(i, j)
-                item = QtWidgets.QTableWidgetItem()
-                self.bound_widget.setItem(i, j, item)
-                self.bound_widget.setCellWidget(i, j, empty_frame)
+                self.initCellWidget(i, j)
+                # self.bound_widget.setCellWidget(i, j, empty_frame)
         # Qt在屏幕上显示的尺寸大小，只和设置的屏幕分辨率有关，会自动消除Windows的scaling所带来的尺寸变化，直接使用的是真实像素
-        scale_ratio = min(1, DF_Ratio)
+        scale_ratio = FIX_SIZE_WIDGET_SCALING
         self.bound_widget.horizontalHeader().setDefaultSectionSize(int(300 * scale_ratio))
         self.bound_widget.verticalHeader().setDefaultSectionSize(int(170 * scale_ratio))
         self.bound_widget.horizontalHeader().setVisible(False)
@@ -2418,51 +2556,12 @@ class ToDoView(View):
                                         "padding-right: 2px;border: none;}")
 
         # 在tableWidget里展示信息
-        before_todo_view = time.perf_counter()
+        before_todo_insert = time.perf_counter()
         self.todo_id_map.clear() # todo_id_map记录的是ToDoUnit在tableWidget中的坐标，相当于是对于其在todo_view_matrix中的坐标进行了转置
         for i, col in enumerate(todo_view_matrix):
             self.renderMatrixColum(i)
-            # column_index = i
-            # sequence_mark = False
-            # col_mark = i % 2
-            # key_field_value_old = ''
-            # for j, unit in enumerate(col):
-            #     row_index = j
-            #     if unit is None:
-            #         continue
-            #     self.bound_widget.setCellWidget(row_index, column_index, unit.todoWidget)
-            #
-            #     if self.arrange_strategy == self.ARRANGE_OFFI_TYPE:
-            #         secondary_key_field = self.leveled_key_alias_fields[1][0]
-            #     else:
-            #         secondary_key_field = self.leveled_key_alias_fields[0][0]
-            #     key_field_value_new = getattr(unit.model, secondary_key_field)
-            #
-            #     if not key_field_value_new == key_field_value_old:
-            #         sequence_mark = not sequence_mark
-            #     key_field_value_old = key_field_value_new
-            #     # item:QtWidgets.QTableWidgetItem = self.bound_widget.item(row_index, column_index)
-            #     if col_mark:
-            #         rgb = ((220 - int(sequence_mark) * 10),
-            #                (200 + int(sequence_mark) * 20),
-            #                (195 + int(sequence_mark) * 0))
-            #     else:
-            #         rgb = ((185 + int(sequence_mark) * 0),
-            #                (210 + int(sequence_mark) * 20),
-            #                (235 - int(sequence_mark) * 10))
-            #
-            #     color = QColor(*rgb)
-            #     self.bound_widget.setTableCellColor(row_index, column_index, rgb)
-            #     # item.setBackground(QColor((230 + int(sequence_mark) * 20 -int(col_mark) * 40 ),
-            #     #                           (230 + int(sequence_mark) * 20), (230 + int(sequence_mark) * 20)))
-            #     # pal = QtGui.QPalette()
-            #     # pal.setColor(QtGui.QPalette.Window, color)
-            #     # brush = QtGui.QBrush(color)
-            #     # item.setData(Qt.BackgroundColorRole, color)
-            #     # item.setBackground(brush)
-            #     # item.setStyleSheet(f"padding-left: 2px; padding-right: 2px;border: none; "
-            #     #                    f"background:{(230 + int(sequence_mark) * 20 -int(col_mark) * 20 ), (230 + int(sequence_mark) * 20), (230 + int(sequence_mark) * 20)} ")
-            #     self.todo_id_map[unit.model._id] = (row_index, column_index)
+        after_insert= time.perf_counter()
+        # print('time for all insert:', after_insert-before_todo_insert)
 
     def set_bound_widget_header_scroll_value(self, value=None):
         self.bound_widget_header.horizontalScrollBar().setValue(value)
@@ -2473,7 +2572,7 @@ class ToDoView(View):
         self.bound_widget_header.clear()
         self.bound_widget_header.setRowCount(1)
         self.bound_widget_header.setColumnCount(len(header_items))
-        scale_ratio = min(1, DF_Ratio)
+        scale_ratio = FIX_SIZE_WIDGET_SCALING
         self.bound_widget_header.horizontalHeader().setDefaultSectionSize(int(300 * scale_ratio))
         self.bound_widget_header.horizontalHeader().setVisible(False)
         self.bound_widget_header.verticalHeader().setVisible(False)
@@ -2608,6 +2707,9 @@ class ToDoView(View):
         todo_view_matrix, self.todo_view_header_array = self.makeTodoViewMatrix()
         self.renderTableWidget(todo_view_matrix)
         self.renderTableWidget_header(self.todo_view_header_array)
+
+
+
         # print('time_for_todo_view_widget:', time.perf_counter() - before_todo_view)
 
     def uniteByTodoType(self, type:str):
@@ -2639,9 +2741,9 @@ class ToDoView(View):
             ids = _id
         for id in ids:
             row_index, column_index = self.todo_id_map[id]
-            self.bound_widget.removeCellWidget(row_index, column_index)
-            item = self.createEmptyFrame(row_index, column_index)
-            self.bound_widget.setCellWidget(row_index, column_index, item)
+            # self.bound_widget.removeCellWidget(row_index, column_index) # todo:rewrite
+            # item = self.createEmptyFrame(row_index, column_index)
+            self.initCellWidget(row_index, column_index)
 
     def createEmptyFrame(self, row_index:int, column_index:int):
         frame = RedefinedWidget.EmptyDropFrame(self)
@@ -2676,15 +2778,18 @@ class ToDoView(View):
             unit.model.inter_order_weight = i+1
             unit.model.saveBasicData()
 
-    def removeUnits(self,_id:Union[list[str],str]):
+    def removeUnitsFromCache(self,_id:Union[list[str],str]):
         if isinstance(_id,str):
             ids = [_id]
         else:
             ids = _id
+
         for i in reversed(range(len(self.units))):
             unit = self.units[i]
             if unit.model._id in ids:
                 self.units.pop(i)
+                self.todo_id_map.pop(unit.model._id, None)
+
         if self.units_for_render == self.units:
             return
         for i in reversed(range(len(self.units_for_render))):
@@ -2710,10 +2815,13 @@ class ToDoView(View):
                 self.units_for_render.insert(i, new_todo_unit)
 
     def on_check_status_changed(self, check_status):
+        before_load_todo = time.perf_counter()
         self.check_status = check_status
         condition = self.parent.overall_project_search(2) # todo: 不适用基于project的搜索，否则无法加载未关联项目的
         self.setDataModel(condition)
         self.renderWidget()
+        after_load_todo = time.perf_counter()
+        # print('time for loading todo:', after_load_todo - before_load_todo)
 
     def on_delete_todo(self, id:str):
         '''
@@ -2721,9 +2829,10 @@ class ToDoView(View):
         :return:None
         '''
         self.removeWidgets(id)
-        self.removeUnits(id)
+        self.removeUnitsFromCache(id)
 
-    def on_add_new_todo(self,parent:QWidget = None,conn_company_id:str = None, conn_project_id:str=None,conn_task_id:str=None):
+    def on_add_new_todo(self, parent:QWidget = None, conn_company_id:str = None,
+                        conn_project_id:str=None, conn_task_id:str=None):
         if not parent:
             parent = self.parent
         ok = self.add_todo_log(parent,conn_company_id, conn_project_id,conn_task_id)
@@ -2824,6 +2933,7 @@ class ToDoView(View):
         return unit
 
     def handleTodoUnitDrop(self, source_id: str, target_id: str):
+        # find units according to id
         source_unit_coord = self.todo_id_map[source_id]
         target_unit_coord = self.todo_id_map[target_id]
         source_unit = self.todo_view_matrix[source_unit_coord[1]][source_unit_coord[0]]
@@ -2831,13 +2941,16 @@ class ToDoView(View):
         source_col = source_unit_coord[1]
         target_col = target_unit_coord[1]
         target_row = target_unit_coord[0]
+        # modify officejob_type
         old_type = source_unit.model.officejob_type
         new_type = target_unit.model.officejob_type
         if old_type == new_type:
             return
-        self.removeUnitFromTodoviewMatrix(source_unit_coord)
         source_unit.setOfficejobType(new_type)
+        # relocate unit in todo_view_matrix
+        self.removeUnitFromTodoviewMatrix(source_unit_coord)
         self.todo_view_matrix[target_col].insert(target_row, source_unit)
+        # rerender
         self.reRenderMatrixColumn(source_col)
         self.reRenderMatrixColumn(target_col)
         pass
@@ -2863,8 +2976,6 @@ class ToDoView(View):
             self.todo_view_matrix[target_col].append(source_unit)
         self.reRenderMatrixColumn(source_col)
         self.reRenderMatrixColumn(target_col)
-
-
 
     def acceptTaskCmd(self,cmd):
         global_logger.debug('Todo accepted task')
@@ -3066,7 +3177,6 @@ class ToDoUnitCreator():
         '''
         for field, value in fields_values.items():
             setattr(self.model, field, value)
-
 
 class OutputMode(object):
     pass
