@@ -1669,6 +1669,7 @@ class TodoUnitView(View):
 
     def setWidget(self):
         self.todoWidget = RedefinedWidget.ToDoUnitWidget(self.parent, self.model, self.parent_view.drag_drop_enabled)
+        # self.todoWidget.setUpdatesEnabled(False)
         self.todoWidget.lineEdit.setMinimumWidth(40)
         ResAdaptor.init_ui_size(self.todoWidget)
         self.todoWidget.setObjectName('todo_widget')
@@ -1758,45 +1759,19 @@ class TodoUnitView(View):
         if self.model.on_pending:
             self.todoWidget.pushButton_4.setChecked(True)
         if self.model.pending_till_date:
-
-
             pending_days = (datetime.datetime.strptime(str(self.model.pending_till_date), '%Y-%m-%d').date()\
-
-
                             - datetime.datetime.today().date()).days
-
-
             #datetime两个日期相减得到的数字是实际数字相减的结果
-
-
             if pending_days > 0:
-
-
                 self.todoWidget.lineEdit.setText(str(pending_days))
-
-
                 self.todoWidget.label.setText(self.model.pending_till_date)
-
-
                 self.todoWidget.lineEdit.setEnabled(True)
-
-
                 self.todoWidget.pushButton_5.setEnabled(True)
-
-
             else:
-
-
                 self.todoWidget.lineEdit.setText('')
-
-
                 self.todoWidget.label.setText('')
         else:
-
-
             self.todoWidget.lineEdit.setText('')
-
-
             self.todoWidget.label.setText('')
         self.todoWidget.isCritial_slideButton.setChecked(self.model.is_critical)
         self.todoWidget.todoStatus_triSlideButton.setCheckstatus(self.model.status)
@@ -1828,6 +1803,7 @@ class TodoUnitView(View):
         if self.model.is_critical:
             self.todoWidget.textEdit.setStyleSheet('#textEdit{background:rgb%s; '
                                                    '%s}'%(str(getAlphaColor(GColour.TaskColour.TaskIsCritial, 180)),self.Todo_Font_Style))
+        # self.todoWidget.setUpdatesEnabled(True)
 
     def setOfficejobType(self,X:str):
         if self.model.officejob_type == X:
@@ -1915,8 +1891,9 @@ class TodoUnitView(View):
 
     def on_pending_deactivated(self):
         '''适用于“取消”按钮的槽函数, 以及手动将延期天数设置为0的情况的处理'''
-        ok = QMessageBox.question(self.todoWidget, '取消延期','确定取消延期？',QMessageBox.Yes|QMessageBox.No,QMessageBox.No)
-        if ok ==QMessageBox.No :
+        ok = QMessageBox.question(self.todoWidget, '取消延期', '确定取消延期？',
+                                  QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if ok == QMessageBox.No:
             return
         self.todoWidget.pushButton_4.setChecked(False)
         self.model.on_pending = False
@@ -2040,13 +2017,12 @@ class TodoUnitView(View):
             type_set_X = type_set_menu.addAction(office_job_dict[T])
             type_set_X.triggered.connect(partial(self.setOfficejobType, T))
 
-def strongMaskTuple(tp_0:tuple, tp_1:tuple):
-    '''比较两个元组的成员，只要发现一个相同位置成员同时为True，即返回True'''
-    tp_0 = map(str, map(int, tp_0))
-    tp_1 = map(str, map(int, tp_1))
-    b1 = int(''.join(tp_0), 2)
-    b2 = int(''.join(tp_1), 2)
-    return b1 & b2
+def bools2binary(bl_0: tuple|list):
+    '''convert a sequence of booleans to a binary representation'''
+    assert len(bl_0) > 0, 'The sequence bl_0 should not be empty'
+    bl_0 = map(str, map(int, bl_0))
+    b0 = int(''.join(bl_0), 2)
+    return b0
     # for i in range(len(tp_0)):
     #     if tp_0[i] and tp_1[i]:
     #       return True
@@ -2062,6 +2038,8 @@ class ToDoView(View):
     COMPANY_KEY_ALIAS_FIELD = ('conn_company_id', 'conn_company_name')
     JOBTYPE_KEY_ALIAS_FIELD = ('officejob_type', None)
     PROJECT_KEY_ALIAS_FIELD = ('conn_project_name', 'conn_project_name')
+
+
     def __init__(self,parent=None, parent_widget = None):
         super(ToDoView, self).__init__()
         self.parent = parent
@@ -2089,6 +2067,17 @@ class ToDoView(View):
         self.check_status = self.tab_bar.getCheckStatus()
         self.tab_bar.comboBox_order.currentIndexChanged.connect(self.on_comboBox_order)
 
+
+    def updateControl(func):
+        '''Stop updating widgets while making big changes to them'''
+        def wrapper(*args, **kwargs):
+            self = args[0]
+            self.bound_widget.setUpdatesEnabled(False)
+            ret = func(*args, **kwargs)
+            self.bound_widget.setUpdatesEnabled(True)
+            return ret
+        return wrapper
+
     def initAllData(self):
         pass
 
@@ -2097,7 +2086,8 @@ class ToDoView(View):
         self.units_for_render.clear()
         self.units_for_render = self.units
         get_pending = self.check_status[0][0] # to_do.pending_date - today
-        mask = self.check_status[3] # 掩码用于筛选comboBox所选的类型 # project
+        mask = self.check_status[3]
+        mask_b = bools2binary(mask) # 讲系列bool值转换成二进制掩码，用于筛选comboBox所选的类型 # project
         condition = self.handleSearchCondition(condition)
         todo_fields = ['_id', 'conn_task_id', 'todo_desc', 'status','on_pending', 'pending_till_date', 'is_critical',
                        'conclusion_desc', 'waiting_desc', 'create_time', 'destroyed', 'inter_order_weight',
@@ -2183,7 +2173,7 @@ class ToDoView(View):
             elif get_pending == 2:# 获取全部任务
                 pass
             before_create_unit = time.perf_counter()
-            todo_unit = TodoUnitView(parent=self.parent ,parent_view=self)
+            todo_unit = TodoUnitView(parent=self.parent, parent_view=self)
             todo_unit.model.assign_data(keys=keys, values=log)
 
             if todo_id in dict_todo_project.keys():
@@ -2216,8 +2206,10 @@ class ToDoView(View):
             elif mask and reduce(mul, mask) == 1:
                 pass
             else:
-                maskee = (todo_unit.model.conn_project_is_deal ,todo_unit.model.conn_project_order_tobe,
-                          todo_unit.model.conn_project_clear_chance, todo_unit.model.conn_project_highlight,
+                maskee = (todo_unit.model.conn_project_is_deal,
+                          todo_unit.model.conn_project_order_tobe,
+                          todo_unit.model.conn_project_clear_chance,
+                          todo_unit.model.conn_project_highlight,
                           todo_unit.model.conn_project_in_act,
                           not (todo_unit.model.conn_project_is_deal or
                                todo_unit.model.conn_project_order_tobe or
@@ -2226,9 +2218,10 @@ class ToDoView(View):
                                todo_unit.model.conn_project_in_act or
                                not bool(todo_unit.model.conn_project_id)),
                           not bool(todo_unit.model.conn_project_id))
-                global_logger.debug('maskee:{}'.format(maskee))
-                global_logger.debug('mask:{}'.format(mask))
-                if not strongMaskTuple(mask, maskee): # if only one positional condition matches
+                maskee = bools2binary(maskee)
+                # global_logger.debug('maskee:{}'.format(maskee))
+                # global_logger.debug('mask:{}'.format(mask))
+                if not mask_b & maskee: # if only one positional condition matches
                     continue
             j += 1
             before_todo_unitWidget = time.perf_counter()
@@ -2292,7 +2285,10 @@ class ToDoView(View):
         painter.begin(device)
         painter.drawLine(1, 1, width, 1)
         painter.end()
+        # time_before_update = time.perf_counter()
         device.update()
+        # time_after_update = time.perf_counter()
+        # print('time_for_update = ', time_after_update - time_before_update)
 
     @staticmethod
     def setTableCellAppearance(tablewidget:QtWidgets.QTableWidget, row, column, color, is_switching:bool):
@@ -2484,6 +2480,7 @@ class ToDoView(View):
             self.bound_widget.setCellWidget(i, column_index, unit.todoWidget)
             after_set = time.perf_counter()
             global_logger.debug("time_for_insert_todowidget{}".format(after_set-before_in))
+            unit.todoWidget.setUpdatesEnabled(True)
             if self.arrange_strategy == self.ARRANGE_OFFI_TYPE:
                 secondary_key_field = self.leveled_key_alias_fields[1][0]
             else:
@@ -2506,6 +2503,7 @@ class ToDoView(View):
                        (235 - int(sequence_mark) * 10))
             self.bound_widget.setTableCellAppearance(i, column_index, rgb, is_switching=switching)
 
+    @updateControl
     def reRenderMatrixColumn(self, column_index:int):
         # shape of former table
         former_len_col = self.bound_widget.rowCount()
@@ -2531,6 +2529,7 @@ class ToDoView(View):
         empty_frame = self.createEmptyFrame(row, column)
         QtWidgets.QTableWidget.setCellWidget(self.bound_widget, row, column, empty_frame)
 
+    @updateControl
     def renderTableWidget(self, todo_view_matrix:list[list]):
         row_count = 0
         for col in todo_view_matrix:
@@ -2558,10 +2557,12 @@ class ToDoView(View):
         # 在tableWidget里展示信息
         before_todo_insert = time.perf_counter()
         self.todo_id_map.clear() # todo_id_map记录的是ToDoUnit在tableWidget中的坐标，相当于是对于其在todo_view_matrix中的坐标进行了转置
+        # self.bound_widget.setUpdatesEnabled(False)
         for i, col in enumerate(todo_view_matrix):
             self.renderMatrixColum(i)
         after_insert= time.perf_counter()
-        # print('time for all insert:', after_insert-before_todo_insert)
+        # self.bound_widget.setUpdatesEnabled(True)
+        print('time for all insert:', after_insert-before_todo_insert)
 
     def set_bound_widget_header_scroll_value(self, value=None):
         self.bound_widget_header.horizontalScrollBar().setValue(value)
@@ -2757,6 +2758,7 @@ class ToDoView(View):
         self.todo_view_matrix[col][row] = todo_unit_view
         self.bound_widget.setCellWidget(row, col, todo_unit_view.todoWidget)
 
+
     def reRenderWidget(self, row_index:int, column_index:int, todo_unit_view):
         '''参数start和stop表示的是闭区间'''
         # row_count = len(self.units_for_render) // 5 if len(self.units_for_render) % 5 == 0 else len(self.units_for_render)//5 +1
@@ -2846,7 +2848,6 @@ class ToDoView(View):
         todo_view = self.todo_view_matrix[col][row]
         ok, todo_model = self.add_todo_log(parent= self.parent, conn_company_id = todo_view.model.conn_company_id,
                                              conn_project_id = todo_view.model.conn_project_id)
-
         if ok:
             new_todo_view = TodoUnitView(parent=self.parent, parent_view=self)
             new_todo_view.model = todo_model
@@ -2856,6 +2857,7 @@ class ToDoView(View):
             self.todo_id_map[new_todo_view.model._id] = (row, col)
             self.replaceUnit(todo_id, new_todo_view)
             self.setCellUnitWidget(row, col, new_todo_view)
+            new_todo_view.todoWidget.setUpdatesEnabled(True)
             return True
         else:
             return False

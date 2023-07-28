@@ -69,7 +69,6 @@ class CompanyEditorTabBar(QTabBar,Ui_CompanyEditorUi):
 
     # def initGeoWidgets(self):
 
-
     def initGeoWidgets(self): # 此函数每次调用都会触发comboBox的currentIndexChanged信号，导致company类的有关属性被修改。
         self.comboBox_2.lineEdit().setPlaceholderText('国家/地区/Country')
         self.comboBox_3.lineEdit().setPlaceholderText('省/州/State')
@@ -125,7 +124,6 @@ class CompanyEditorTabBar(QTabBar,Ui_CompanyEditorUi):
                 self.comboBox_5.setCurrentIndex(-1)
                 return
             self.comboBox_5.setCurrentIndex(current_index)
-
 
     def on_province_change(self):
         print('wheel_changeP',self.comboBox_3.currentIndex())
@@ -480,13 +478,15 @@ class CompanyEditorTabBar(QTabBar,Ui_CompanyEditorUi):
         if do_change_company_short_name:
             CS.updateSqliteCells('proj_list', conditions={'client_id': self.company._id},
                              update_fields={'client':self.company.short_name})
+            self.parent.setClientCompleter()
         if ok :
             QMessageBox.about(self, '完成', '%s \n\n保存成功！'%self.company.short_name)
         self.company.personnel_class.staff_adjusted.clear()
-        pass
+
         # todo:这里其实需要改进，把修改其他tabBar的命令封装起来
         cmd = DataCenter.GPersonnelCmd('update', self.company._id) # 对人员的修改
         self.parent.listener.accept(cmd)
+
         # for record in self.parent.tabBarAdded:
         #     if isinstance(record[1], ProjectTabBar) and record[1].project.client_id == self.company._id:
         #         record[1].initPersonnelSet()

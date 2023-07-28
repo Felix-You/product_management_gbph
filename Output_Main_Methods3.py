@@ -640,7 +640,7 @@ class OutputMainWindow(QtWidgets.QMainWindow, Ui_MainWindow, QComboBox):
             name , ok = RedefinedWidget.ComboBoxDialog.getItem(self,'客户名称','请输入会议的客户名称',self.customer_list)
             if not ok :
                 return
-            get_client_id = CS.getLinesFromTable('clients',conditions={'short_name': name}, columns_required=['_id'])
+            get_client_id = CS.getLinesFromTable('clients', conditions={'short_name': name}, columns_required=['_id'])
             get_client_id.pop()
             if get_client_id:#获取到已有的客户
                 client_id = get_client_id[0][0]
@@ -651,7 +651,7 @@ class OutputMainWindow(QtWidgets.QMainWindow, Ui_MainWindow, QComboBox):
                 create_new = QMessageBox.warning(self,'未找到','注意：\n输入的客户名称不存在，\n是否创建新的客户？', QMessageBox.Yes| QMessageBox.No, QMessageBox.No)
                 if create_new == QMessageBox.Yes :#获取到新客户
                     self.createNewCompany(company_name=name)
-                    self.startMeetingMode()
+                    # self.startMeetingMode()
                     return 
                 else:
                     continue
@@ -702,10 +702,7 @@ class OutputMainWindow(QtWidgets.QMainWindow, Ui_MainWindow, QComboBox):
     def createNewProject(self, client_id = None):
         if not client_id:
             while True:#获取到客户的名称
-                # inputDialog = QInputDialog(self,Qt.Dialog|Qt.WindowCloseButtonHint)
-                # inputDialog.setMinimumSize(600, 300)
-                # inputDialog.setSizePolicy(QSizePolicy.Minimum,QSizePolicy.Minimum)
-                client_name , ok = RedefinedWidget.ComboBoxDialog.getItem(self,'所属客户', '项目所属的客户名称:',
+                client_name, ok = RedefinedWidget.ComboBoxDialog.getItem(self,'所属客户', '项目所属的客户名称:',
                                                        self.customer_list)
                 if not ok:
                     return
@@ -715,7 +712,7 @@ class OutputMainWindow(QtWidgets.QMainWindow, Ui_MainWindow, QComboBox):
                                                      QMessageBox.Yes| QMessageBox.No, QMessageBox.No)
                     if create_new == QMessageBox.Yes :#获取到新客户
                         self.createNewCompany(company_name=client_name)
-                        self.createNewProject()
+                        # self.createNewProject()
                         return
                     else:
                         continue
@@ -723,34 +720,40 @@ class OutputMainWindow(QtWidgets.QMainWindow, Ui_MainWindow, QComboBox):
                     break
             #通过客户的名称获取到客户的id
             search_client = CS.getLinesFromTable('clients', conditions={'short_name': client_name},
-                                                   columns_required=['short_name', '_id'])
+                                                   columns_required=['short_name', '_id', 'enterprise_name'])
         else:
             #通过客户的id获取到客户的名称
             search_client = CS.getLinesFromTable('clients', conditions={'_id': client_id},
-                                                   columns_required=['short_name', '_id'])
+                                                   columns_required=['short_name', '_id', 'enterprise_name'])
         search_client.pop()
         client_name = search_client[0][0]
+        client_full_name = search_client[0][2]
         client_id = search_client[0][1]
         project_id = Snow('a').get()
         #给指定客户id下面新建一个项目，生成项目id和项目名称
         while True:#
             inputDialog = QInputDialog(self,Qt.Dialog|Qt.WindowCloseButtonHint)
-            project_name , ok = inputDialog.getItem(self,'项目名称', '为 %s 创建新项目\n\n请输入新项目名称：'%client_name,
+            project_name, ok = inputDialog.getItem(self,'项目名称', '为 %s 创建新项目\n\n请输入新项目名称：'%client_name,
                                                     self.item_list, editable = True)
             if not re.sub('[\W_]', '', project_name):#去除所有非法符号后，未输入其他字符
                 QMessageBox.about(inputDialog, '错误', '请输入有效的名称!\n')
                 continue
             if not ok:
                 return
-            search_project = CS.getLinesFromTable('proj_list',conditions={'client_id':client_id,'product':project_name.strip()},
+            search_project = CS.getLinesFromTable('proj_list', conditions={'client_id':client_id,'product':project_name.strip()},
                                                   columns_required=['_id', 'product','client'])
             search_project.pop()
             if search_project:
                 QMessageBox.about(self, '已存在', '该客户已有此项目，\n'
                                         '请检查，或重新输入！')
                 continue
-            else:
+            ok = QMessageBox.question(self, '确认', f'确认新建项目：\n\n客户名称:'
+                                                   f' {client_full_name if client_full_name else client_name}\n'
+                                                    f'项目名称: {project_name}',
+                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            if ok == QMessageBox.Yes:
                 break
+
         in_act = False
         clear_chance = False
         order_tobe = False

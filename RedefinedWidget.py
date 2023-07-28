@@ -1973,8 +1973,12 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
         log_eidt_table = JsonLogEditTable(self.parent, data=data_json, attachedWidget=obj)
         log_eidt_table.EditingFinished.connect()
 
+
+
     def __init__(self, parent=None, model=None, drag_drop_enabled = True):
         super(ToDoUnitWidget, self).__init__(parent)
+        self.setUpdatesEnabled(False)
+        # self.setE()
         self.setupUi(self)
         self.setObjectName('todo_unit')
         # self.setStyleSheet('QFrame{background-color: rgba(245,248,160,105);'
@@ -1994,11 +1998,6 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
         self.isCritial_slideButton.setFixedSize(size)
         self.isCritial_slideButton.setColourChecked(GColour.getAlphaColor(GColour.TaskColour.TaskIsCritial, 180))
         self.verticalLayout_10.addWidget(self.isCritial_slideButton)
-        # self.toVisit_slideButton = SliderButton(parent=self,fontText='拜访')
-        # size = QtCore.QSize(50*DF_Ratio, 24*DF_Ratio)
-        # self.toVisit_slideButton.setFixedSize(size)
-        # self.toVisit_slideButton.setColourChecked(GColour.ProjectRGBColour.ProjectToVisit)
-        # self.verticalLayout_10.addWidget(self.toVisit_slideButton)
 
         self.todoStatus_triSlideButton = TriSliderButton(parent=self, fontText=['未办', '进行', '完成'],
                                                          colourStatus_1=(140, 150, 220, 150),
@@ -2006,7 +2005,6 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
         self.verticalLayout_5.addWidget(self.todoStatus_triSlideButton)
         self.todoStatus_triSlideButton.setFixedSize(30 * scaling_ratio, 46 * scaling_ratio)
         self.textEdit.mouseDoubleClickEvent = types.MethodType(new_doubleClickEvent, self.textEdit)
-
         self.groupBox.setStyleSheet(
             'QGroupBox{border-radius:5;border-style:solid;border-width:1;border-color:rgb(230,230,230)}')
         # 绑定重写的方法和属性
@@ -2016,7 +2014,6 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
         self.textEdit.setText = types.MethodType(MyQTextEdit.setText, self.textEdit)
         self.textEdit.setEdited = types.MethodType(MyQTextEdit.setEdited, self.textEdit)
         self.textEdit.textChanged.connect(self.textEdit.setEdited)
-        # self.textEdit_2.mouseDoubleClickEvent = types.MethodType( new_doubleClickEvent,self.textEdit_2 )
         self.textEdit_2.edited = False
         self.textEdit_2.init_text = ''
         self.textEdit_2.keyPressEvent = types.MethodType(MyQTextEdit.keyPressEvent, self.textEdit_2)
@@ -2029,6 +2026,7 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
         self.textEdit_2.setReadOnly(True)
         self.setAcceptDrops(True)
         self.iniDragCor = [0, 0]
+        # self.setUpdatesEnabled(True)
         # self.Todo_Font_Style = 'font-family:Microsoft YaHei; font-weight:400; font-size: 16px'
 
     def renderSelf(self):
