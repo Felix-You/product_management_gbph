@@ -2200,14 +2200,6 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
     def paintEvent(self, a0: QtGui.QPaintEvent) -> None:
         super(ToDoUnitWidget, self).paintEvent(a0)
 
-    def update(self) -> None:
-        self.update_count += 1
-        super(ToDoUnitWidget, self).update()
-
-    def repaint(self) -> None:
-        self.update_count += 1
-        super(ToDoUnitWidget, self).repaint()
-
     def dropEvent(self, a0: QtGui.QDropEvent) -> None:
         if not a0.source().__class__ is ToDoUnitWidget:
             return
