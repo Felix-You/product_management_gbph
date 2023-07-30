@@ -1734,6 +1734,7 @@ class TodoUnitView(View):
         # self.todoWidget.commandLinkButton.setDescription()
         self.todoWidget.pushButton_project.clicked.connect(self.on_project_clicked)
         self.todoWidget.isCritial_slideButton.toggled.connect(self.on_isCritial_slideButton_clicked)
+        self.todoWidget.todoTimeSpaceDistance_triSliderButton.toggled.connect(self.on_todoTimeSpaceDistance_triSlideButton_toggled)
         self.todoWidget.todoStatus_triSlideButton.toggled.connect(self.on_todoStatus_triSlideButton_toggled)
         self.todoWidget.pushButton_4.setStyleSheet('QPushButton:checked{background:lightblue}')
         self.todoWidget.pushButton_4.clicked.connect(self.on_pending_activated)
@@ -1775,6 +1776,7 @@ class TodoUnitView(View):
             self.todoWidget.label.setText('')
         self.todoWidget.isCritial_slideButton.setChecked(self.model.is_critical)
         self.todoWidget.todoStatus_triSlideButton.setCheckstatus(self.model.status)
+        self.todoWidget.todoTimeSpaceDistance_triSliderButton.setCheckstatus(self.model.timespace_distance)
         self.style = ''
         if self.model.conn_project_id:
             if self.model.conn_project_order_tobe:
@@ -1870,8 +1872,12 @@ class TodoUnitView(View):
                            source_widget=self.parent.todo_view.tab_bar,fields_values=fields_values)
             self.parent.listener.accept(cmd)
 
-    def on_todoStatus_triSlideButton_toggled(self, is_checked):
-        status = self.todoWidget.todoStatus_triSlideButton.checkStatus
+    def on_todoTimeSpaceDistance_triSlideButton_toggled(self, distance):
+        self.model.timespace_distance = distance
+        self.model.saveBasicData()
+
+    def on_todoStatus_triSlideButton_toggled(self, status):
+        # status = self.todoWidget.todoStatus_triSlideButton.checkStatus
         if status == 2:
             ok = self.pushFoward()
         self.model.status = status
@@ -2017,7 +2023,7 @@ class TodoUnitView(View):
             type_set_X = type_set_menu.addAction(office_job_dict[T])
             type_set_X.triggered.connect(partial(self.setOfficejobType, T))
 
-def bools2binary(bl_0: tuple|list):
+def bools2binary(bl_0):
     '''convert a sequence of booleans to a binary representation'''
     assert len(bl_0) > 0, 'The sequence bl_0 should not be empty'
     bl_0 = map(str, map(int, bl_0))
@@ -2067,7 +2073,6 @@ class ToDoView(View):
         self.check_status = self.tab_bar.getCheckStatus()
         self.tab_bar.comboBox_order.currentIndexChanged.connect(self.on_comboBox_order)
 
-
     def updateControl(func):
         '''Stop updating widgets while making big changes to them'''
         def wrapper(*args, **kwargs):
@@ -2086,8 +2091,9 @@ class ToDoView(View):
         self.units_for_render.clear()
         self.units_for_render = self.units
         get_pending = self.check_status[0][0] # to_do.pending_date - today
+        timespace_distance_wanted = self.check_status[4]
         mask = self.check_status[3]
-        mask_b = bools2binary(mask) # 讲系列bool值转换成二进制掩码，用于筛选comboBox所选的类型 # project
+        mask_b = bools2binary(mask) # 将系列bool值转换成二进制掩码，用于筛选comboBox所选的类型 # project
         condition = self.handleSearchCondition(condition)
         todo_fields = ['_id', 'conn_task_id', 'todo_desc', 'status','on_pending', 'pending_till_date', 'is_critical',
                        'conclusion_desc', 'waiting_desc', 'create_time', 'destroyed', 'inter_order_weight',
@@ -2201,6 +2207,9 @@ class ToDoView(View):
                 if task_log is not None:
                     todo_unit.model.conn_task_cat = task_log[1]
 
+            if todo_unit.model.timespace_distance not in timespace_distance_wanted:
+                continue
+
             if not mask:
                 pass
             elif mask and reduce(mul, mask) == 1:
@@ -2265,7 +2274,6 @@ class ToDoView(View):
             _widget.setParent(None)
         layout.addWidget(widget)
 
-
         # print('time_for_set_todowidget:', after_setCellWidget - before_setCellWidget)
 
     @staticmethod
@@ -2275,7 +2283,6 @@ class ToDoView(View):
 
     @staticmethod
     def paintEvent(device, e):
-        QFrame.paintEvent(device, e)
         width = device.width()
         # m_nPTargetPixmap = QPixmap(1,1)
         painter = QPainter(device)
@@ -2286,7 +2293,7 @@ class ToDoView(View):
         painter.drawLine(1, 1, width, 1)
         painter.end()
         # time_before_update = time.perf_counter()
-        device.update()
+        QFrame.paintEvent(device, e)
         # time_after_update = time.perf_counter()
         # print('time_for_update = ', time_after_update - time_before_update)
 
@@ -2709,10 +2716,6 @@ class ToDoView(View):
         self.renderTableWidget(todo_view_matrix)
         self.renderTableWidget_header(self.todo_view_header_array)
 
-
-
-        # print('time_for_todo_view_widget:', time.perf_counter() - before_todo_view)
-
     def uniteByTodoType(self, type:str):
         """根据待办事项的类型进行选择"""
         tmp_units = self.units.copy()
@@ -2757,7 +2760,6 @@ class ToDoView(View):
         todo_unit_view.setWidget()
         self.todo_view_matrix[col][row] = todo_unit_view
         self.bound_widget.setCellWidget(row, col, todo_unit_view.todoWidget)
-
 
     def reRenderWidget(self, row_index:int, column_index:int, todo_unit_view):
         '''参数start和stop表示的是闭区间'''

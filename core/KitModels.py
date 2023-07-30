@@ -12,9 +12,10 @@ from enum import Enum
 from ID_Generate import Snow
 
 
+data_model_field_cache = {}
+
 def getCurrentTime():
     return time.strftime("%Y-%m-%d %H:%M:%S")
-
 
 class ItemTypeCreateFactory(object):
     _instance = None
@@ -87,8 +88,12 @@ class AbstractDataObject(object):
         CS.upsertSqlite(self.table_name , fields , values)
 
     def initDataFields(self):
-        db_fields = CS.getTableFields(self.table_name)
-        self.data_fields = set(db_fields)
+        if self.table_name in data_model_field_cache:
+            data_fields = data_model_field_cache[self.table_name]
+        else:
+            data_fields = CS.getTableFields(self.table_name)
+            data_model_field_cache[self.table_name] = data_fields
+        self.data_fields = data_fields
 
     def saveBasicData(self):
         """保存该类的基本字段，不包括关联的类实例的字段内容"""

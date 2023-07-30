@@ -829,6 +829,7 @@ class ToDo(LogType):
         self.conn_project_id = None
         self.todo_desc = None
         self.status = 0
+        self.timespace_distance = 0
         self.on_pending = False
         self.pending_till_date = None
         self.is_critical = False

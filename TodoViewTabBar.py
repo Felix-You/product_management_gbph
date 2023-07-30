@@ -22,6 +22,7 @@ class TodoViewTabBar(QTabBar,Ui_Form):
 
         self.parent = parent
         todo_category = ['合作执行', '预期订单', '明确机会','高亮关注', '上线跟进', '普通项目', '独立任务']
+        timespace_category = ['近时','中期', '远期']
         arrange_strategies = DataCenter.todo_arrange_strategies
         #替换下拉菜单
         from DataView import DF_Ratio, FIX_SIZE_WIDGET_SCALING
@@ -32,12 +33,18 @@ class TodoViewTabBar(QTabBar,Ui_Form):
         self.comboBox_cata.deleteLater()
         self.comboBox_order.setMinimumSize(QtCore.QSize(90* DataView.FIX_SIZE_WIDGET_SCALING, 24* DataView.FIX_SIZE_WIDGET_SCALING))
         self.comboBox_order.setStyleSheet('font-size:11px')
-
         self.comboBox_order.addItems(arrange_strategies)
+
+        self.comboBox_timespace_ = CheckableComboBox(parent=self, item_list=timespace_category)
+        self.comboBox_timespace_.setMinimumSize(90 * DataView.FIX_SIZE_WIDGET_SCALING, 24 * DataView.FIX_SIZE_WIDGET_SCALING)
+        self.comboBox_timespace_.setStyleSheet('font-size:11px')
+        self.horizontalLayout_2.replaceWidget(self.comboBox_timespace, self.comboBox_timespace_)
+        self.comboBox_timespace.deleteLater()
 
         # self.setAcceptDrops(True)
         self.setUpColourLable()
         self.comboBox.checkStatusChanged.connect(self.on_comboBox_change)
+        self.comboBox_timespace_.checkStatusChanged.connect(self.on_timespace_chance)
         self.radioButton.clicked.connect(self.on_mission_range_change)
         self.radioButton_2.clicked.connect(self.on_mission_range_change)
         self.radioButton_3.clicked.connect(self.on_mission_range_change)
@@ -53,8 +60,10 @@ class TodoViewTabBar(QTabBar,Ui_Form):
         self.mission_range = self.get_mission_range()
         self.urgence_range = self.get_urgence_range()
         self.progress_check_status = self.get_progess_check_status()
-        self.comboBox_checked  = self.comboBox.getCheckStatus()
-        self.check_status = (self.mission_range, self.progress_check_status, self.urgence_range, self.comboBox_checked)
+        self.comboBox_check_status  = self.comboBox.getCheckStatus()
+        self.timespace_distance_checked = self.comboBox_timespace_.getCheckIndex()
+        self.check_status = (self.mission_range, self.progress_check_status, self.urgence_range, self.comboBox_check_status,
+                             self.timespace_distance_checked)
         #禁用tableWigdet自身的鼠标事件
         self.tableWidget.mouseDoubleClickEvent = types.MethodType(self.tbw_mouseClickEvent, self.tableWidget)
         self.tableWidget.mousePressEvent = types.MethodType(self.tbw_mouseClickEvent, self.tableWidget)
@@ -93,9 +102,13 @@ class TodoViewTabBar(QTabBar,Ui_Form):
         self.label_5.setText('上线跟进')
         self.label_5.setStyleSheet(styleColour(GColour.ProjectRGBColour.ProjectInAct))
 
-    def on_comboBox_change(self, checkedIndexes):
+    def on_comboBox_change(self, check_status):
         # print('sender',self.sender())
-        self.comboBox_checked = checkedIndexes
+        self.comboBox_check_status = check_status
+        self.on_check_status_change()
+
+    def on_timespace_chance(self, check_status):
+        self.timespace_distance_checked = [i for i, ch in enumerate(check_status) if ch]
         self.on_check_status_change()
 
     def on_mission_range_change(self):
@@ -135,7 +148,8 @@ class TodoViewTabBar(QTabBar,Ui_Form):
         return self.check_status
 
     def on_check_status_change(self):
-        self.check_status = (self.mission_range, self.progress_check_status, self.urgence_range, self.comboBox_checked)
+        self.check_status = (self.mission_range, self.progress_check_status, self.urgence_range, self.comboBox_check_status,
+                             self.timespace_distance_checked)
         self.checkStatusChanged.emit(self.check_status)
         pass
 

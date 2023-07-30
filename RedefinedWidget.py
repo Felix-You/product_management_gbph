@@ -736,6 +736,7 @@ class SliderButton(QAbstractButton):
         width = a0.width()
         height = a0.height()
         self.innerDiameter = int(height * 0.8)
+
     def setFixedHeight(self, h: int) -> None:
         super(SliderButton, self).setFixedHeight(h)
         self.innerDiameter = int(h * 0.8)
@@ -785,11 +786,11 @@ class SliderButton(QAbstractButton):
         # 根据选中状态修改x坐标偏移值
         if self.checked:
             self.offset += 1
-            if self.offset > (self.width() - self.innerDiameter - self.innerMargin):
+            if self.offset >= (self.width() - self.innerDiameter - self.innerMargin):
                 self.killTimer(self.timeId)
         else:
             self.offset -= 1
-            if self.offset < self.innerMargin:
+            if self.offset <= self.innerMargin:
                 self.killTimer(self.timeId)
         # 调用update，进行重绘
         self.update()
@@ -830,6 +831,7 @@ class SliderButton(QAbstractButton):
 
 class TriSliderButton(QAbstractButton):
 
+    toggled = pyqtSignal(int)
     def __init__(self, fontText: list = None, colourStatus_1=None, colourStatus_2=None, parent=None):
         super(TriSliderButton, self).__init__(parent)
         # 内部滑块尺寸
@@ -889,7 +891,6 @@ class TriSliderButton(QAbstractButton):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setPen(Qt.NoPen)
-
         # 开启抗锯齿
         painter.setRenderHint(QPainter.Antialiasing)
 
@@ -952,34 +953,33 @@ class TriSliderButton(QAbstractButton):
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
             Y = event.pos().y()
+            self.formerCheckStatus = self.checkStatus
             if Y < (self.height() - 2) / 3 + 1:  # 点击0区域
-                self.formerCheckStatus = self.checkStatus
                 self.checkStatus = 0
-                if self.checkStatus == self.formerCheckStatus:
-                    event.ignore()
-                    return
-                self.checked = False
             elif Y >= (self.height() - 2) / 3 + 1 and Y < (self.height() - 2) * 2 / 3 + 1:  # 点击1区域
-                self.formerCheckStatus = self.checkStatus
                 self.checkStatus = 1
-                if self.checkStatus == self.formerCheckStatus:
-                    return
-                self.checked = True
             else:
-                self.formerCheckStatus = self.checkStatus
                 self.checkStatus = 2
-                if self.checkStatus == self.formerCheckStatus:
-                    return
-                self.checked = True
-            self.toggled.emit(self.checked)
+
+            if self.checkStatus == self.formerCheckStatus:
+                event.ignore()
+                return
+
+            self.checked = True
+            if self.checkStatus == 0:
+                self.checked = False
+
+            self.toggled.emit(self.checkStatus)
             if self.timeId:
                 self.killTimer(self.timeId)
             self.timeId = self.startTimer(5)
+
 
     def setCheckstatus(self, checkStatus) -> None:
         # 调用此方法改变状态不会触发动画，而是直接改变状态
         if not self.checkStatus == checkStatus:
             self.checkStatus = checkStatus
+            self.formerCheckStatus = checkStatus
             if checkStatus == 0:
                 self.checked = False
             else:
@@ -1052,10 +1052,11 @@ class CheckableComboBox(QtWidgets.QComboBox):
             pass
         else:
             QtWidgets.QComboBox.hidePopup(self)
-            self.getCheckItem()
-            lineText = ','.join(self.checkedItems)
-            # self.setCurrentText(lineText)
-            # self.lineEdit().setText(lineText)
+            # self.getCheckItem()
+            # lineText = ','.join(self.checkedItems)
+            # # self.setCurrentText(lineText)
+            # # self.lineEdit().setText(lineText)
+            # print('triggered hide popup')
             self.on_checkStatusChanged()
             self.changed = False
 
@@ -1861,7 +1862,6 @@ class CheckPointTableWidgetPop(QtWidgets.QTableWidget):
             self.clearFocus()
         return super().eventFilter(object, event)
 
-
 class CheckItemHorizontalPanel(QtWidgets.QScrollArea):
     def __init__(self, check_items: list[CheckItem], fields_values: dict, column_widths: list = None,
                  attachedWidget: QtWidgets.QWidget = None, parent=None):
@@ -1901,7 +1901,6 @@ class CheckItemHorizontalPanel(QtWidgets.QScrollArea):
         self.set_geometry(nRow, 2, column_widths)
         self.parent.installEventFilter(self)
         self.show()
-
 
 class CheckLableBox(QtWidgets.QFrame):
     statusClicked = pyqtSignal(tuple)
@@ -1966,14 +1965,11 @@ class CheckLableBox(QtWidgets.QFrame):
                 check_names.append(self.labels[i][0])
         return tuple(check_names)
 
-
 class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
     def conclusionDoubleClickEvent(self, obj):
         data_json = self.model.conclusion_desc
         log_eidt_table = JsonLogEditTable(self.parent, data=data_json, attachedWidget=obj)
         log_eidt_table.EditingFinished.connect()
-
-
 
     def __init__(self, parent=None, model=None, drag_drop_enabled = True):
         super(ToDoUnitWidget, self).__init__(parent)
@@ -1997,12 +1993,18 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
         size = QtCore.QSize(50 *scaling_ratio, 24 * scaling_ratio)
         self.isCritial_slideButton.setFixedSize(size)
         self.isCritial_slideButton.setColourChecked(GColour.getAlphaColor(GColour.TaskColour.TaskIsCritial, 180))
-        self.verticalLayout_10.addWidget(self.isCritial_slideButton)
+        self.verticalLayout_h_sliders.addWidget(self.isCritial_slideButton)
 
         self.todoStatus_triSlideButton = TriSliderButton(parent=self, fontText=['未办', '进行', '完成'],
                                                          colourStatus_1=(140, 150, 220, 150),
                                                          colourStatus_2=(140, 220, 150, 150))
-        self.verticalLayout_5.addWidget(self.todoStatus_triSlideButton)
+        self.todoTimeSpaceDistance_triSliderButton = TriSliderButton(parent=self, fontText= ['近时','中期', '远期'],
+                                                            colourStatus_1=(180, 180, 180, 150),
+                                                            colourStatus_2=(150, 150, 150, 150)
+                                                            )
+        self.horizontalLayout_v_sliders.addWidget(self.todoTimeSpaceDistance_triSliderButton,0)
+        self.horizontalLayout_v_sliders.addWidget(self.todoStatus_triSlideButton, 1)
+        self.todoTimeSpaceDistance_triSliderButton.setFixedSize(30 * scaling_ratio, 46 * scaling_ratio)
         self.todoStatus_triSlideButton.setFixedSize(30 * scaling_ratio, 46 * scaling_ratio)
         self.textEdit.mouseDoubleClickEvent = types.MethodType(new_doubleClickEvent, self.textEdit)
         self.groupBox.setStyleSheet(
@@ -2145,6 +2147,7 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
 
     def setDragDropEnabled(self, d0 = True):
         self.drag_drop_enabled = d0
+
     def dragEnterEvent(self, a0: QtGui.QDragEnterEvent) -> None:
         if not self.drag_drop_enabled:
             return
@@ -2154,12 +2157,10 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
     #     pass
 
     def mousePressEvent(self, e):
-        print("ppp", e.pos())
+        # print("ppp", e.pos())
         if self.drag_drop_enabled:
             self.iniDragCor[0] = e.x()
             self.iniDragCor[1] = e.y()
-
-
         # self.setFocus()
         super(ToDoUnitWidget, self).mousePressEvent(e)
 
@@ -2195,6 +2196,17 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
         drag.setHotSpot(e.pos() - self.rect().topLeft())
         # self.parentWidget().remo
         dropAction = drag.exec_(Qt.MoveAction)
+
+    def paintEvent(self, a0: QtGui.QPaintEvent) -> None:
+        super(ToDoUnitWidget, self).paintEvent(a0)
+
+    def update(self) -> None:
+        self.update_count += 1
+        super(ToDoUnitWidget, self).update()
+
+    def repaint(self) -> None:
+        self.update_count += 1
+        super(ToDoUnitWidget, self).repaint()
 
     def dropEvent(self, a0: QtGui.QDropEvent) -> None:
         if not a0.source().__class__ is ToDoUnitWidget:
@@ -2243,6 +2255,7 @@ class EmptyDropFrame(QFrame):
         # self.parent.todo_view.handleTodoUnitDrop(source_id, target_id)
         self.parent_view.on_empty_frame_drop(mime_data, self)
         return
+
 class ToDoUnitCreateDialog(QtWidgets.QDialog):
     def __init__(self, company_id: str = None, conn_project_id: str = None, conn_task_id: str = None,
                  parent=None, presenter = None):
@@ -2546,7 +2559,6 @@ class ToDoUnitCreateDialog(QtWidgets.QDialog):
     def getProjectTasks(self, project_id: str):
         tasks = self.presenter.getProjectTasks(project_id)
         return tasks
-
 
 class SingleSelectionDialog(QtWidgets.QDialog):
     def __init__(self, parent = None, title:str = '', choices:list[str] = None, first_choice_default:bool = False):
