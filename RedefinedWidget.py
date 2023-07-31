@@ -1990,7 +1990,7 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
         self.isCritial_slideButton = SliderButton(parent=self, fontText='紧急')
         # scaling_ratio  = min(1, DataView.DF_Ratio)
         scaling_ratio = DataView.FIX_SIZE_WIDGET_SCALING
-        size = QtCore.QSize(50 *scaling_ratio, 24 * scaling_ratio)
+        size = QtCore.QSize(40 *scaling_ratio, 22 * scaling_ratio)
         self.isCritial_slideButton.setFixedSize(size)
         self.isCritial_slideButton.setColourChecked(GColour.getAlphaColor(GColour.TaskColour.TaskIsCritial, 180))
         self.verticalLayout_h_sliders.addWidget(self.isCritial_slideButton)
@@ -2006,6 +2006,11 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
         self.horizontalLayout_v_sliders.addWidget(self.todoStatus_triSlideButton, 1)
         self.todoTimeSpaceDistance_triSliderButton.setFixedSize(30 * scaling_ratio, 46 * scaling_ratio)
         self.todoStatus_triSlideButton.setFixedSize(30 * scaling_ratio, 46 * scaling_ratio)
+        self.lineEdit.setFixedSize(36 * scaling_ratio, 20 * scaling_ratio)
+        font = QtGui.QFont()
+        font.setPointSize(8 * scaling_ratio)
+        self.label.setFont(font)
+        self.label_2.setFont(font)
         self.textEdit.mouseDoubleClickEvent = types.MethodType(new_doubleClickEvent, self.textEdit)
         self.groupBox.setStyleSheet(
             'QGroupBox{border-radius:5;border-style:solid;border-width:1;border-color:rgb(230,230,230)}')

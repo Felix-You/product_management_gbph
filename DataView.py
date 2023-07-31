@@ -1632,7 +1632,6 @@ class CompanyEidtorView(View):
         self.tab_bar.deleteLater()
         del self
 
-
 class TodoUnitView(View):
     def __init__(self, parent = None,  parent_view = None):
         super(TodoUnitView, self).__init__()
@@ -1670,7 +1669,7 @@ class TodoUnitView(View):
     def setWidget(self):
         self.todoWidget = RedefinedWidget.ToDoUnitWidget(self.parent, self.model, self.parent_view.drag_drop_enabled)
         # self.todoWidget.setUpdatesEnabled(False)
-        self.todoWidget.lineEdit.setMinimumWidth(40)
+        # self.todoWidget.lineEdit.setMinimumWidth(40)
         ResAdaptor.init_ui_size(self.todoWidget)
         self.todoWidget.setObjectName('todo_widget')
         self.todoWidget.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -2236,7 +2235,7 @@ class ToDoView(View):
             before_todo_unitWidget = time.perf_counter()
             todo_unit.setWidget()
             after_todo_unitWidget = time.perf_counter()
-            print('time_for_render_todowidget:', after_todo_unitWidget - before_todo_unitWidget)
+            # print('time_for_render_todowidget:', after_todo_unitWidget - before_todo_unitWidget)
             self.units.append(todo_unit)
         after_create_units = time.perf_counter()
         # print('time for creating all units:', after_create_units - before_create_units)
@@ -2486,7 +2485,7 @@ class ToDoView(View):
             before_in = time.perf_counter()
             self.bound_widget.setCellWidget(i, column_index, unit.todoWidget)
             after_set = time.perf_counter()
-            global_logger.debug("time_for_insert_todowidget{}".format(after_set-before_in))
+            # global_logger.debug("time_for_insert_todowidget{}".format(after_set-before_in))
             unit.todoWidget.setUpdatesEnabled(True)
             if self.arrange_strategy == self.ARRANGE_OFFI_TYPE:
                 secondary_key_field = self.leveled_key_alias_fields[1][0]
