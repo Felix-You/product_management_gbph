@@ -974,7 +974,6 @@ class TriSliderButton(QAbstractButton):
                 self.killTimer(self.timeId)
             self.timeId = self.startTimer(5)
 
-
     def setCheckstatus(self, checkStatus) -> None:
         # 调用此方法改变状态不会触发动画，而是直接改变状态
         if not self.checkStatus == checkStatus:
@@ -2274,15 +2273,17 @@ class ToDoUnitCreateDialog(QtWidgets.QDialog):
 
         self.init_project = conn_project_id
         self.is_critical = False
+        self.timespace_distance = 1
         self.setInitIds()
         # 主表单
         self.mainLayout = QtWidgets.QFormLayout(self)
         self.mainLayout.setSpacing(16 * DataView.DF_Ratio)
-        self.mainLayout.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        # self.mainLayout.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.mainLayout.setFormAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.mainLayout.setHorizontalSpacing(0)
         minWidth = 120
-        lable = QtWidgets.QLabel(self)
-        lable.setText('任务描述:')
+        label = QtWidgets.QLabel(self)
+        label.setText('任务描述:')
         self.textEdit = QtWidgets.QTextEdit(self)
         # self.textEdit.focusOutEvent = types.MethodType(textEdit_focusOutEvent, self.textEdit)
         if self.initial_task_id:
@@ -2291,7 +2292,7 @@ class ToDoUnitCreateDialog(QtWidgets.QDialog):
             self.textEdit.setPlaceholderText('追踪新任务：选择关联的项目，自动创建新任务\n\n追踪已有任务：'
                                              '选择关联已有的任务\n\n独立任务：不设置关联的项目')
         self.textEdit.setMinimumHeight(110 * DataView.DF_Ratio)
-        self.mainLayout.addRow(lable, self.textEdit)
+        self.mainLayout.addRow(label, self.textEdit)
 
         lable_company = QtWidgets.QLabel(self)
         lable_company.setText('关联公司:')
@@ -2342,12 +2343,26 @@ class ToDoUnitCreateDialog(QtWidgets.QDialog):
         self.combo_task.completer().setFilterMode(Qt.MatchContains)
 
         lable_critical = QtWidgets.QLabel(self)
-        lable_critical.setText('是否紧急:')
+        lable_critical.setText('时效情况:')
         self.btn_critical = SliderButton('紧急', colorChecked=GColour.TaskColour.TaskIsCritial)
         self.btn_critical.toggled.connect(self.on_critical_change)
         size = QtCore.QSize(50 * DataView.DF_Ratio, 25 * DataView.DF_Ratio)
         self.btn_critical.setFixedSize(size)
-        self.mainLayout.addRow(lable_critical, self.btn_critical)
+        self.slider_timespace_distance = TriSliderButton(parent=self, fontText= ['近时', '中期', '远期'],
+                                                            colourStatus_1=(180, 180, 180, 150),
+                                                            colourStatus_2=(150, 150, 150, 150)
+                                                            )
+        self.slider_timespace_distance.setCheckstatus(self.timespace_distance)
+        self.slider_timespace_distance.toggled.connect(self.on_timespace_distance_change)
+        size = QtCore.QSize(30 * DataView.DF_Ratio, 55 * DataView.DF_Ratio)
+        self.slider_timespace_distance.setFixedSize(size)
+        frame = QFrame(self)
+        layout = QtWidgets.QHBoxLayout(frame)
+        frame.setLayout(layout)
+        layout.addWidget(self.btn_critical)
+        layout.addWidget(self.slider_timespace_distance)
+        layout.addStretch(1)
+        self.mainLayout.addRow(lable_critical, frame)
         # 禁用滚轮
         self.combo_company.wheelEvent = types.MethodType(new_wheelEvent, self.combo_company)
         self.combo_company.setFocusPolicy(QtCore.Qt.StrongFocus)
@@ -2516,6 +2531,9 @@ class ToDoUnitCreateDialog(QtWidgets.QDialog):
     def on_critical_change(self, is_critical):
         self.is_critical = is_critical
 
+    def on_timespace_distance_change(self, distance):
+        self.timespace_distance = distance
+
     def save_todo_unit(self):
         ok = self.checkInputValidation()
         if not ok:
@@ -2527,6 +2545,7 @@ class ToDoUnitCreateDialog(QtWidgets.QDialog):
         fields_values['conn_company_id'] = self.company
         fields_values['todo_desc'] = self.textEdit.toPlainText()
         fields_values['is_critical'] = self.is_critical
+        fields_values['timespace_distance'] = self.timespace_distance
         fields_values['create_time'] = time.strftime("%Y-%m-%d %H:%M:%S")
         fields_values['pending_days'] = self.lineEdit_pendingDays.text()
         fields_values['officejob_type'] = self.officejob_type
@@ -2535,7 +2554,6 @@ class ToDoUnitCreateDialog(QtWidgets.QDialog):
         self.presenter.saveModel(json_fields_values)
 
         self.accept()
-
 
     def setInitIds(self):
         id_fields = ['initial_company_id', 'initial_project_id','initial_task_id']
@@ -2656,7 +2674,6 @@ class ThemeChooseDialog(QtWidgets.QDialog):
         theme = dialog.theme
         return (ok, theme)
 
-
 class DirectoryChooseBox(QtWidgets.QDialog):
     def __init__(self, title: str, hint_text: str = None, parent=None):
         super(DirectoryChooseBox, self).__init__(parent)
@@ -2706,7 +2723,6 @@ class DirectoryChooseBox(QtWidgets.QDialog):
         result = dialog.exec_()
         directory = dialog.lineEdit.text()
         return (directory, result == QtWidgets.QDialog.Accepted)
-
 
 class UI(QtWidgets.QWidget):
     def __init__(self, parent=None):

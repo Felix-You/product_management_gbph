@@ -1270,11 +1270,6 @@ class CompanyGroupModel(object):
         self.groups = []
         self.company_dict = {}
         self.loadUserCompanyGroupFilter()
-        # id_company_bounds = CS.getLinesFromTable('clients', conditions={}, columns_required=['_id','short_name'])
-        # id_company_bounds.pop()
-        # self.id_company_dict = {}
-        # for item in id_company_bounds:
-        #     self.id_company_dict[item[0]] = item[1]
 
     def loadUserCompanyGroupFilter(self):
         # 当前文件路径
@@ -1358,7 +1353,5 @@ class CompanyGroupModel(object):
 
 
 if __name__ == '__main__':
-    # cls0 = Company()
-    # print(cls0.data_fields)
 
     checkDatabase()
