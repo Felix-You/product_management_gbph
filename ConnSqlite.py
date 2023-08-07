@@ -232,7 +232,7 @@ def getLineFromSqlite(table_name:str,condition:dict):
             print(sql, tuple(condition_values))
             result = cx.execute(sql,condition_values).fetchall()
 
-            print('查找成功')
+            # print('查找成功')
             #print(result)
             #cx.close()
         except Exception as e:
@@ -261,7 +261,7 @@ def getInFromSqlite(table_name:str,condition:dict):
         print(sql)
         result = cx.execute(sql).fetchall()
 
-        print('查找成功')
+        # print('查找成功')
         # print(result)
         # cx.close()
     except Exception as e:
@@ -550,7 +550,8 @@ def triple_innerJoin_withList_getLines(table_a:str, table_b:str, table_c:str,
     return result
 
 @fromRemote
-def getLinesFromTable(table_name, conditions:dict, columns_required:list = None, order: list = None ,ascending:bool = True):
+def getLinesFromTable(table_name, conditions:dict, columns_required:list = None,
+                      order: list = None ,ascending:bool = True):
     #提取表Key信
     col_info = cx.execute('pragma table_info("{view}")'.format(view=table_name)).fetchall()
     begin_sql = time.perf_counter()
@@ -598,7 +599,7 @@ def getLinesFromTable(table_name, conditions:dict, columns_required:list = None,
     try:
         result = cx.execute(sql).fetchall()
         # print(result)
-        print('查找成功')
+        # print('查找成功')
     except Exception as e:
         print('查找失败')
         result = None
@@ -698,7 +699,7 @@ def getLikeLinesFromTable(table_name,like_conditions:dict, exact_conditions:dict
         print('未找到')
         result = []
     else:
-        print('查找成功')
+        # print('查找成功')
         result.append(col_name_result)
     return result
 
