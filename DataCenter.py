@@ -805,7 +805,8 @@ class Client(Company):
         # self.trimDataFields()
 
         self.projects = []
-        self.loadBasicData()
+        if self._id:
+            self.loadBasicData()
 
     def addProject(self, obj: Project):
         self.projects.append(obj)

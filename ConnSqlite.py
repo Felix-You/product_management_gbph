@@ -58,15 +58,16 @@ def getNpFrameLines(array:np.array,fields_values:dict):
     return array[np.array(b)]
     pass"""
 
-get_methods = set(['getTableFields', 'getTableRowCount', 'getLineFromSqlite', 'getInFromSqlite', 'multiConditionsGetLinesFromSqlite',
-                  'innerJoin_withList_getLines', 'getLinesFromTable', 'getInFromSqlite', 'getLineFromSqlite', 'getLikeLinesFromTable',
+get_methods = set(['getTableFields', 'getTableRowCount', 'getLineFromSqlite', 'getInFromSqlite',
+                   'multiConditionsGetLinesFromSqlite', 'innerJoin_withList_getLines', 'triple_innerJoin_withList_getLines',
+                   'getLinesFromTable', 'getInFromSqlite', 'getLineFromSqlite', 'getLikeLinesFromTable',
                     'getSqliteCells'])
 
 def fromRemote(func):
     if use_service != 'remote':
         return func
     func_name = func.__name__
-    def remote(*args, **kwargs):
+    def remoteFunc(*args, **kwargs):
         # if not isinstance(args, tuple):
         #     args = (args,)
         url = 'http://127.0.0.1:8000/api/projects/'
@@ -87,7 +88,7 @@ def fromRemote(func):
             )
             data = res.json()['data']
             return data
-    return remote
+    return remoteFunc
 
 # def __getattr__(name):
 #     if use_service == 'remote':
@@ -311,8 +312,6 @@ def multiConditionsGetLinesFromSqlite(table_name:str, condition_keys:tuple, cond
             # print(tuple(row_data.values()))
             #print(sql)
             print(tuple(values))
-
-
             result = cx.execute(sql, tuple(values)).fetchall()
             results.extend(result)
             # cx.close()
@@ -454,7 +453,7 @@ def triple_innerJoin_withList_getLines(table_a:str, table_b:str, table_c:str,
     if not method in ('inner join', 'left outer join', 'left join', 'cross join'):
         raise ValueError(f'invalid method {method}')
     if not (joint_key_a_b and joint_key_a_c) or (joint_key_a_b and joint_key_b_c) or (joint_key_a_c and joint_key_b_c):
-        raise ValueError('Only one of joint_key_a_b, joint_key_a_c and target_colunms_c is allowed to be None.')
+        raise ValueError('Only one of joint_key_a_b, joint_key_a_c and joint_key_b_c is allowed to be None.')
     if not condition_a:
         condition_a = {}
     if not condition_b:
@@ -599,7 +598,7 @@ def getLinesFromTable(table_name, conditions:dict, columns_required:list = None,
     try:
         result = cx.execute(sql).fetchall()
         # print(result)
-        # print('查找成功')
+        print('查找成功')
     except Exception as e:
         print('查找失败')
         result = None

@@ -449,72 +449,66 @@ class OverView(View):
         self.nHighlight = 0
         #查找到所搜索项目的id,客户名称，客户id
         # before_make_proj_ids = time.perf_counter()
-        proj_ids_with_clients = CS.getLinesFromTable('proj_list',conditions=condition,
-                                                     columns_required=['_id','client_id'])
-        proj_ids_with_clients.pop()
 
-        if not proj_ids_with_clients:
+        project_fields = Project.getDataFields()
+        client_fields = Client.getDataFields()
+        project_status_fields = ['status_code']
+        project_client_status_join_data = CS.triple_innerJoin_withList_getLines(
+            table_a='proj_list', table_b='clients', table_c='proj_status_log',
+            joint_key_a_b=('client_id', '_id'), joint_key_a_c=('_id', 'conn_project_id'),
+            condition_a=condition,
+            target_colums_a=project_fields, target_colunms_b= client_fields, target_colunms_c=project_status_fields,
+            method='left join'
+        )
+        if not project_client_status_join_data:
             QMessageBox.about(self.parent, '未找到', '没有符合条件的项目！')
             return
-        # before_make_client_ids = time.perf_counter()
-        #获取符合条件的client列表
-        client_ids = []
-        for item in proj_ids_with_clients:
-            client_ids.append(item[1])
-        client_ids = list(set(client_ids))
-        #
-        # temp.sort(key=client_ids.index)
-        # client_short_names = temp
-        #初始化client_proj字典, 每个client的project集合构成一个列表
-        client_proj_ids = {}
-        for client_id in client_ids:
-            client_proj_ids[client_id] = []
-        #
-        #生成client_proj字典
-        for item in proj_ids_with_clients:
-            client_proj_ids[item[1]].append(item[0])
-        before_make_clients = time.perf_counter()
-        #形成clients数据信息
-        ConnSqlite.cor.execute('BEGIN')
-        for i, client_id in enumerate(client_ids):
-            proj_ids = client_proj_ids[client_id]#客户的所有相关proj_id
-            client_tmp = Client(_id=client_id)#生成一个client类实例
-            before_make_projects = time.perf_counter()
 
-            status_code_info = CS.getLinesFromTable(table_name='proj_status_log',
-                                                    conditions={'conn_project_id': proj_ids},
-                                                    columns_required=['conn_project_id','status_code'])
-            status_code_info.pop()
-            proj_status_code = dict(status_code_info)
+        # project_fields_index = {key:i for i, key in enumerate(project_fields)}
+        # client_fields_index = {key: i + len(project_fields) for i ,key in enumerate(client_fields)}
+        project_fields_len = len(project_fields)
+        client_fields_len = len(client_fields)
+        dict_client_id_instance ={}
+        dict_proj_id_instance = {}
+        time_before_making_project_client = time.perf_counter()
+        for item in project_client_status_join_data:
+            project = Project()
+            project.assign_data(project_fields, item[:project_fields_len])
+            project.status_code = item[-1]
+            project.has_active_task_critical = False
+            dict_proj_id_instance[project._id] = project
+            client_id = project.client_id
+            if not client_id in dict_client_id_instance:
+                client = Client()
+                client.assign_data(client_fields, item[project_fields_len: project_fields_len+client_fields_len])
+                dict_client_id_instance[client_id] = client
+                self.clients.append(client)
+            dict_client_id_instance[client_id].projects.append(project)
+        time_after_making_project_client = time.perf_counter()
+        print('time for making_project_client_instances',time_after_making_project_client - time_before_making_project_client)
+        client_ids = list(dict_client_id_instance.keys())
+        project_ids = list(dict_proj_id_instance.keys())
 
-            proj_task_in_act = CS.innerJoin_withList_getLines('tasks', 'todo_log', '_id', 'conn_task_id',
+        proj_task_in_act = CS.innerJoin_withList_getLines('tasks', 'todo_log', '_id', 'conn_task_id',
                                                           ['conn_project_id', 'is_critical'], ['status', 'destroyed'],
-                                                          {'conn_project_id': proj_ids, 'is_critical': 1}, {'destroyed':0, 'status': [0, 1]},
+                                                          {'conn_project_id': project_ids, 'is_critical': 1},
+                                                          {'destroyed': 0, 'status': [0, 1]},
                                                           method='left join')
-            proj_task_critical = {}
-            for conn_project_id, is_critical, status, destroyed in proj_task_in_act:
-                if is_critical and status is not None and status < 2 and not destroyed:
-                    proj_task_critical.update({conn_project_id: True})
+        for conn_project_id, is_critical, status, destroyed in proj_task_in_act:
+            dict_proj_id_instance[conn_project_id].has_active_task_critical = True
 
-            for id in proj_ids:
-                project_tmp = Project(id)#生成一个project类实例
-                project_tmp.load_basic_data()
-                project_tmp.status_code = proj_status_code.get(id, 0)
-                project_tmp.has_active_task_critical = proj_task_critical.get(id, False)
-                #此时的project包含了memo、meeting信息
-                client_tmp.addProject(project_tmp)
-            end_make_projects = time.perf_counter()
-            # print('time_for_make_client_projects:',end_make_projects - before_make_projects)
-            client_tmp.loadCompanyLogs()
-            # print(client_tmp)
-            # print(client_tmp.projects)
-            self.clients.append(client_tmp)
-        ConnSqlite.cor.execute('COMMIT')
-        end_function = time.perf_counter()
-        # print('time_for_proj_ids:',before_make_client_ids - before_make_proj_ids)
-        # print('time_for_client_ids:',before_make_clients - before_make_client_ids)
-        # print('time_for_clients:', end_function - before_make_clients)
-        # print('time_for_overviewModel:',end_function - before_make_proj_ids)
+        client_log_datas = CS.getLinesFromTable('client_log', conditions={'company_id': client_ids},
+                                    order=['create_time'], ascending=True)
+        client_log_fields = client_log_datas.pop()
+        # client_log_fields_index = {key:i for i, key in enumerate(client_log_fields)}
+
+        for item in client_log_datas:
+            company_log = CompanyLog()
+            company_log.assign_data(client_log_fields, item)
+            # company_id = item[client_log_fields_index['company_id']]
+            company_id = company_log.company_id
+            client = dict_client_id_instance[company_id]
+            client.logs.append(company_log)
 
     def secondaryShowRender(self, attribute_name):
         """根据页面勾选的次级筛选条件，重新渲染页面"""
@@ -749,15 +743,21 @@ class OverView(View):
         #     customer_text_logs.append(text_log)
         #在tableWidget里展示信息
         main_loop_start = time.perf_counter()
+        time_for_units_make_widget = 0
+        time_for_unit_widgets_render_html = 0
         for i in range(len(self.current_clients)):
             loop_start = time.perf_counter()
             row_index = i // 5
             column_index = i % 5
             #创建单元格->TextBrowser的基本显示样式
+            make_widget_start = time.perf_counter()
             textBrowser = MyQTextBrowser()
             textBrowser.index = i
             self.bound_widget.setCellWidget(row_index,column_index, textBrowser)
             make_widget_end = time.perf_counter()
+            time_unit_make_widget = make_widget_end - make_widget_start
+            time_for_units_make_widget += time_unit_make_widget
+            # print('time for overview unit make widget', time_unit_make_widget)
             #设置单元格TextBrowser样式
             textBrowser.setStyleSheet("QTextEdit{"
                                            "background-color: rgb(248, 253, 252);"
@@ -770,11 +770,17 @@ class OverView(View):
             before_html_render = time.perf_counter()
             self.renderUnit(i, re_order_projects= True)
             html_render_end = time.perf_counter()
+            time_unit_widget_render_html = html_render_end - before_html_render
+            time_for_unit_widgets_render_html += time_unit_widget_render_html
+            # print('time for overview unit html render', time_unit_widget_render_html)
             loop_end = time.perf_counter()
             # print('time for make widget%s:'%i, make_widget_end - loop_start)
             # print('time for html_render%s:'%i, html_render_end - before_html_render)
             # print('time for loop%s'%i,loop_end - loop_start)
         render_stop = time.perf_counter()
+        print('time for overview render', render_stop - render_start)
+        print('time_for_units_make_widget', time_for_units_make_widget)
+        print('time_for_unit_widgets_render_html', time_for_unit_widgets_render_html)
 
     def renderUnit(self,i, re_order_projects = True, link_statistics = True):
         '''重新渲染client对应的单元格
@@ -788,11 +794,12 @@ class OverView(View):
         text_log = self.calcClientProjects(client, link_statistics)
         row_index = i // 5
         column_index = i % 5
-        self.bound_widget.cellWidget(row_index,column_index).setText(text_log)
-        self.bound_widget.cellWidget(row_index,column_index).DoubleClicked.connect(lambda : self.customer_DBclicked_search(client.short_name))
+        cellWidget = self.bound_widget.cellWidget(row_index,column_index)
+        cellWidget.setText(text_log)
+        cellWidget.DoubleClicked.connect(lambda : self.customer_DBclicked_search(client.short_name))
         #添加右键菜单
-        self.bound_widget.cellWidget(row_index,column_index).setContextMenuPolicy(Qt.CustomContextMenu)
-        self.bound_widget.cellWidget(row_index,column_index).customContextMenuRequested.connect(self.create_rightMemu)
+        cellWidget.setContextMenuPolicy(Qt.CustomContextMenu)
+        cellWidget.customContextMenuRequested.connect(self.create_rightMemu)
         #tooltip
         latest_log = client.logs[-1] if client.logs else None
         tooltip = ''
@@ -811,7 +818,7 @@ class OverView(View):
         elif latest_log:
             tooltip = str(datetime.datetime.strptime(latest_log.create_time, '%Y-%m-%d %X').date()) +'\n' + log_desc
 
-        self.bound_widget.cellWidget(row_index,column_index).setToolTip(self.wrapTooltip(tooltip,25))
+        cellWidget.setToolTip(self.wrapTooltip(tooltip,25))
         # toolTip = QtWidgets.QToolTip()
 
     def calcClientProjects(self, client, link_statistics = True):
@@ -3308,6 +3315,7 @@ class GeoFilterEditorView(object):
         return check_city_codes
 
     def getCompanyInCheckedCities(self):
+        #todo 在正式上线版本中，只有一种行政区域编码方式，且不应该使用这种先通过city查company再查project的方式，而是inner join方式
         checked_cities = self.getCheckedCities()
         if checked_cities is None:
             return None
@@ -3324,8 +3332,9 @@ class GeoFilterEditorView(object):
             full_city_code = str(province) + str(city)
             # full_city_code = convertInt(full_city_code)
             conditions2['city'].append(full_city_code)
-
-        find_companies1 = CS.multiConditionsGetLinesFromSqlite('clients', condition_keys=condition_keys,condition_values=condition_values,columns_required=['_id'])
+        # 此处对于新旧两种行政区域编码方式做了适应
+        find_companies1 = CS.multiConditionsGetLinesFromSqlite('clients', condition_keys=condition_keys,
+                                                               condition_values=condition_values,columns_required=['_id'])
         find_companies1.pop()
         find_companies2 = CS.getLinesFromTable('clients', conditions=conditions2, columns_required=['_id'])
         find_companies2.pop()

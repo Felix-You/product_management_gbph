@@ -64,10 +64,10 @@ class AbstractDataObject(object):
     # face表示用于对用户显示的名称, 在子类中仅赋值其中一项
 
     def __init__(self, _id = None):
-        self.data_fields = None
+        # self.data_fields = None
         self._id = _id
         self.basic_data_load_success = False
-        self.initDataFields()
+        self.getDataFields()
 
     def redefined_super(self, cls, obj):
         # 重定义的super()函数
@@ -87,13 +87,18 @@ class AbstractDataObject(object):
             raise ValueError('field "table_name" not assigned, please assign the target database table name.')
         CS.upsertSqlite(self.table_name , fields , values)
 
-    def initDataFields(self):
-        if self.table_name in data_model_field_cache:
-            data_fields = data_model_field_cache[self.table_name]
+    @property
+    def data_fields(self):
+        return self.getDataFields()
+
+    @classmethod
+    def getDataFields(cls):
+        if cls.table_name in data_model_field_cache:
+            data_fields = data_model_field_cache[cls.table_name]
         else:
-            data_fields = CS.getTableFields(self.table_name)
-            data_model_field_cache[self.table_name] = data_fields
-        self.data_fields = data_fields
+            data_fields = CS.getTableFields(cls.table_name)
+            data_model_field_cache[cls.table_name] = data_fields
+        return data_fields
 
     def saveBasicData(self):
         """保存该类的基本字段，不包括关联的类实例的字段内容"""
@@ -153,7 +158,7 @@ class DataObject(AbstractDataObject):
     _id_generator = None
     def __new__(cls, *args, **kwargs):
         if cls.idx and not cls._id_generator:
-            cls._id_generator = Snow(idx=cls.idx)
+            cls._id_generator = Snow(idx=cls.idx) # todo 此处线程不安全
         return super(DataObject, cls).__new__(cls)
 
     def __init__(self, face_field:str=None):
