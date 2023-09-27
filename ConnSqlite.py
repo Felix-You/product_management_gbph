@@ -766,9 +766,6 @@ def drugData(func_name:str, *args, **kwargs):
 
 
 if __name__ == '__main__':
-
-
-
     # tables = ['client_log','clients', 'manufacturers', 'product_market_info', 'product_marketing','product_supply','product_supply_detail','proj_list',
     #           'project_meeting_log','project_memo_log','supplier_log','suppliers','tasks','thera_area']
     # for table in tables:
