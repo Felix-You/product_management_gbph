@@ -10,8 +10,6 @@ class Presenter(ABC):
     def setDataModel(self,condition:dict):
         pass
 
-
-
     @abstractmethod
     def setBoundWidget(self,obj):
         self.bound_widget = obj
@@ -28,3 +26,4 @@ class Presenter(ABC):
         搜索到了数据之后再判断所对应的控件位置
         '''
         pass
+

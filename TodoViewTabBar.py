@@ -48,7 +48,6 @@ class TodoViewTabBar(QTabBar,Ui_Form):
         self.radioButton.clicked.connect(self.on_mission_range_change)
         self.radioButton_2.clicked.connect(self.on_mission_range_change)
         self.radioButton_3.clicked.connect(self.on_mission_range_change)
-        # self.radioButton_2.toggled.connect(self.on_mission_range_change)
         self.checkBox_3.clicked.connect(self.on_mission_range_change)
         self.checkBox.clicked.connect(self.on_urgence_range_change)
         self.checkBox_2.clicked.connect(self.on_urgence_range_change)
@@ -75,9 +74,7 @@ class TodoViewTabBar(QTabBar,Ui_Form):
         self.groupBox_2.setFixedSize(130*FIX_SIZE_WIDGET_SCALING, 36*FIX_SIZE_WIDGET_SCALING)
         self.groupBox_2.setStyleSheet('QGroupBox{font-size:%spx}'%int(12*FIX_SIZE_WIDGET_SCALING))
         self.groupBox_3.setFixedSize(230*FIX_SIZE_WIDGET_SCALING, 36*FIX_SIZE_WIDGET_SCALING)
-        # for button in self.findChildren((QtWidgets.QCheckBox, QtWidgets.QRadioButton)):
-        #     fM = QFontMetrics(button.font())
-        #     text_wid = fM.boundingRect(button.text()).width()
+
 
 
     def dragEnterEvent(self, a0: QtGui.QDragEnterEvent) -> None:
