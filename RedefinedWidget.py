@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import QTextEdit, QSlider, QLineEdit, QCheckBox, QFrame, QD
     QAbstractButton,\
     QItemDelegate, QStyle, QStyleOption
 from PyQt5.QtCore import QStringListModel, Qt, QAbstractProxyModel, QModelIndex, QItemSelection, QRectF, QPointF, QTime,\
-    QUrl, QTimer
+    QUrl, QTimer, QRect
 from PyQt5.QtGui import QBitmap, QPainter, QColor, QKeyEvent, QStandardItem, QStandardItemModel, QPixmap
 from PyQt5.Qt import QCursor, pyqtSignal, QEvent, QMouseEvent, QPoint
 
@@ -2087,6 +2087,7 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi_Cut1.Ui_Form_1):
         self.timerId = self.timer.timerId()
         self.timer.timeout.connect(self.showExpand)
         self.on_expanding = False
+        self.base_geo : QRect = None
         self.hold_enter_leave_event = False
 
         # self.setUpdatesEnabled(True)
@@ -2206,6 +2207,10 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi_Cut1.Ui_Form_1):
                                         '%s}' % (str(GColour.getAlphaColor(GColour.TaskColour.TaskIsCritial, 180)),
                                                  self.Todo_Font_Style))
 
+    def setGeometry(self, geo:QRect):
+        self.base_geo = geo
+        super(ToDoUnitWidget, self).setGeometry(geo)
+
     def enterEvent(self, a0: QtCore.QEvent) -> None:
         if self.hold_enter_leave_event:
             return
@@ -2216,7 +2221,8 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi_Cut1.Ui_Form_1):
         pass
 
     def blockMouseEvent(func):
-        '''decorate functions that can cause undesirable mouse events'''
+        '''decorate functions that can cause undesirable mouse events,
+        which accordingly cause reentrancy or idempotence problems.'''
         def wrapper(*args, **kwargs):
             args[0].hold_enter_leave_event = True
             ret = func(*args, **kwargs)
@@ -2229,17 +2235,17 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi_Cut1.Ui_Form_1):
         print(self,'Timer stop in expand, timer id', self.timer.timerId())
         self.timer.stop()
         if self.on_expanding:
-            # This function could be trigger by differen user behaviors,
+            # This function could be trigger by different user behaviors,
             # and should be blocked when the widget is expanded.
             return
         self.on_expanding = False
-        self.old_parent = self.parentWidget()
-        self.old_geo = self.geometry()
+        # self.old_geo = self.geometry() # This can cause reentrancy problems, because its parentWidget might be changed
+                                         # by unexpected signals
         old_place = self.parent.mapToGlobal(self.old_geo.topLeft())
         new_parent = self.parent.parentWidget()
-        new_place = new_parent.mapFromGlobal(old_place)
+        new_pos = new_parent.mapFromGlobal(old_place)
         self.setParent(new_parent)
-        self.move(new_place)
+        self.move(new_pos)
         self.setFixedSize(250, 150)
         self.raise_()
         self.show()
@@ -2252,7 +2258,7 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi_Cut1.Ui_Form_1):
         if self.on_expanding == False:
             return
         self.control_panel.hide()
-        self.setParent(self.old_parent)
+        self.setParent(self.parent)
         self.setFixedSize(250, 100)
         self.move(self.old_geo.topLeft())
         self.show()

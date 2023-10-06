@@ -8,7 +8,7 @@ from copy import deepcopy
 from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtGui import QPainter
 from PyQt5.QtWidgets import QWidget, QStyle, QStyleOption
-from PyQt5.QtCore import pyqtSignal, QEvent, Qt, QUrl, QRect, QSize, QTimer
+from PyQt5.QtCore import pyqtSignal, QEvent, Qt, QUrl, QRect, QSize, QTimer, QRectF
 from RedefinedWidget import ToDoUnitWidget
 from abc import ABC, abstractmethod
 import PyQt5
@@ -196,8 +196,7 @@ class WidgetGroupFrame(QtWidgets.QFrame):
                 unit_view.todoWidget = None
                 unit_view.setWidget(self)
             widget = unit_view.todoWidget
-            widget.setFixedSize(self.widget_width, self.widget_height)
-            widget.move(X, Y)
+            widget.setGeometry(QRect(X, Y, self.widget_width, self.widget_height))
             widget.show()
             X += (self.inner_spacing + self.widget_width)
             if (i+1)% n_col == 0:
