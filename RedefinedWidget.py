@@ -2241,7 +2241,7 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi_Cut1.Ui_Form_1):
         self.on_expanding = False
         # self.old_geo = self.geometry() # This can cause reentrancy problems, because its parentWidget might be changed
                                          # by unexpected signals
-        old_place = self.parent.mapToGlobal(self.old_geo.topLeft())
+        old_place = self.parent.mapToGlobal(self.base_geo.topLeft())
         new_parent = self.parent.parentWidget()
         new_pos = new_parent.mapFromGlobal(old_place)
         self.setParent(new_parent)
@@ -2260,7 +2260,7 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi_Cut1.Ui_Form_1):
         self.control_panel.hide()
         self.setParent(self.parent)
         self.setFixedSize(250, 100)
-        self.move(self.old_geo.topLeft())
+        self.move(self.base_geo.topLeft())
         self.show()
         self.on_expanding = False
 
