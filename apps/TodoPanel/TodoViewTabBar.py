@@ -3,7 +3,7 @@ import json
 from PyQt5.QtGui import QFontMetrics
 
 import DataCenter
-from TodoViewTabBarUi import Ui_Form
+from apps.TodoPanel.TodoViewTabBarUi import Ui_Form
 from RedefinedWidget import CheckableComboBox
 from PyQt5.QtWidgets import QTabBar
 from PyQt5 import QtGui,QtWidgets,QtCore,Qt
@@ -15,7 +15,7 @@ def styleColour(colour:tuple) :
     return "background:rgb%s"%str(colour)
 
 class TodoViewTabBar(QTabBar,Ui_Form):
-    checkStatusChanged = pyqtSignal(tuple)
+    checkStatusChanged = pyqtSignal(dict)
     def __init__(self, parent = None):
         super(TodoViewTabBar,self).__init__(parent)
         self.setupUi(self)
@@ -34,7 +34,7 @@ class TodoViewTabBar(QTabBar,Ui_Form):
         self.comboBox_order.setMinimumSize(QtCore.QSize(90* DataView.FIX_SIZE_WIDGET_SCALING, 24* DataView.FIX_SIZE_WIDGET_SCALING))
         self.comboBox_order.setStyleSheet('font-size:11px')
         self.comboBox_order.addItems(arrange_strategies)
-
+        self.tableWidget_header.setMaximumHeight(20* DataView.FIX_SIZE_WIDGET_SCALING)
         self.comboBox_timespace_ = CheckableComboBox(parent=self, item_list=timespace_category)
         self.comboBox_timespace_.setMinimumSize(90 * DataView.FIX_SIZE_WIDGET_SCALING, 24 * DataView.FIX_SIZE_WIDGET_SCALING)
         self.comboBox_timespace_.setStyleSheet('font-size:11px')
@@ -64,10 +64,10 @@ class TodoViewTabBar(QTabBar,Ui_Form):
         self.check_status = (self.mission_range, self.progress_check_status, self.urgence_range, self.comboBox_check_status,
                              self.timespace_distance_checked)
         #禁用tableWigdet自身的鼠标事件
-        self.tableWidget.mouseDoubleClickEvent = types.MethodType(self.tbw_mouseClickEvent, self.tableWidget)
-        self.tableWidget.mousePressEvent = types.MethodType(self.tbw_mouseClickEvent, self.tableWidget)
-        self.tableWidget.mouseMoveEvent = types.MethodType(lambda obj,e :e.ignore(),self.tableWidget)
-        self.tableWidget.enterEvent = types.MethodType(lambda obj, e :e.ignore(),self.tableWidget)
+        # self.tableWidget.mouseDoubleClickEvent = types.MethodType(self.tbw_mouseClickEvent, self.tableWidget)
+        # self.tableWidget.mousePressEvent = types.MethodType(self.tbw_mouseClickEvent, self.tableWidget)
+        # self.tableWidget.mouseMoveEvent = types.MethodType(lambda obj,e :e.ignore(),self.tableWidget)
+        # self.tableWidget.enterEvent = types.MethodType(lambda obj, e :e.ignore(),self.tableWidget)
         # DataView.ResAdaptor.init_ui_size(self)
         self.groupBox.setFixedSize(352*FIX_SIZE_WIDGET_SCALING, 36*FIX_SIZE_WIDGET_SCALING)
         self.groupBox.setStyleSheet('QGroupBox{font-size:%spx}'%int(12*FIX_SIZE_WIDGET_SCALING))
@@ -142,13 +142,22 @@ class TodoViewTabBar(QTabBar,Ui_Form):
         return tuple(urgence_range)
 
     def getCheckStatus(self):
-        return self.check_status
+        return self.serializeCheckStatus()
+
+    def serializeCheckStatus(self):
+        check_status = {}
+        check_status['mission_range'] = self.mission_range
+        check_status['progress_check_status'] = self.progress_check_status
+        check_status['urgence_range'] = self.urgence_range
+        check_status['project_check_status'] = self.comboBox_check_status
+        check_status['timespace_distance_checked'] = self.timespace_distance_checked
+        return check_status
 
     def on_check_status_change(self):
         self.check_status = (self.mission_range, self.progress_check_status, self.urgence_range, self.comboBox_check_status,
                              self.timespace_distance_checked)
-        self.checkStatusChanged.emit(self.check_status)
-        pass
+        check_status = self.serializeCheckStatus()
+        self.checkStatusChanged.emit(check_status)
 
     def event(self, a0: QtCore.QEvent) -> bool:
         if a0.type() == QtCore.QEvent.HoverEnter:

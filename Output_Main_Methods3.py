@@ -14,6 +14,9 @@ from RedefinedWidget import MySlider,StatusCheckFrame,CompanyCreateDialog, Direc
 from Clock import AnalogClock
 import DataView, DataCenter
 import ctypes
+
+from apps.TodoPanel.TodoPanelPresentor import TodoPanelPresenter
+from apps.TodoPanel.TodoPanelView import ToDoPanelView
 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("myappid")
 
 class QComboBox(QComboBox):#重写鼠标滚轮事件，禁用滚轮
@@ -154,6 +157,10 @@ def time_wrapper(func):
   return measure_time
 
 class OutputMainWindow(QtWidgets.QMainWindow, Ui_MainWindow, QComboBox):
+    SEARCH_MODE_TODOVIEW = 2
+    SEARCH_MODE_PROEJCT = 1
+    SEARCH_MODE_COMPANY = 3
+
     def __init__(self, parent=None):
         super(OutputMainWindow, self).__init__(parent)
         self.setupUi(self)
@@ -173,6 +180,7 @@ class OutputMainWindow(QtWidgets.QMainWindow, Ui_MainWindow, QComboBox):
         self.clock = AnalogClock()
         self.clock.setFixedSize(100*DataView.FIX_SIZE_WIDGET_SCALING, 100*DataView.FIX_SIZE_WIDGET_SCALING)
         self.clock.setSizePolicy(QSizePolicy.Policy.Maximum,QSizePolicy.Policy.Maximum)
+        self.listener = DataView.Listener()
         self.horizontalLayout.insertWidget(0,self.clock, 0, Qt.AlignCenter)
         # self.Layout_clock.addWidget(self.clock)
         self.lineEdit.setClearButtonEnabled(True)
@@ -195,8 +203,10 @@ class OutputMainWindow(QtWidgets.QMainWindow, Ui_MainWindow, QComboBox):
         self.over_view.setUi(self.tabWidget)
         self.detail_view = DataView.DetailView(self)
         self.detail_view.setUi(self.tabWidget)
-        self.todo_view = DataView.ToDoView(self,self.tabWidget)
-        self.todo_view.setupUi()
+        self.todo_presenter = TodoPanelPresenter(self)
+        self.todo_view = ToDoPanelView(parent = self, parent_widget=self.tabWidget)
+        self.todo_view.setPresenter(self.todo_presenter)
+        self.todo_presenter.setUI(self.todo_view,self.tabWidget)
         # DataView.ResAdaptor.init_ui_size(self)
         self.tabWidget.setTabsClosable(True)
 
@@ -233,8 +243,8 @@ class OutputMainWindow(QtWidgets.QMainWindow, Ui_MainWindow, QComboBox):
 
         self.radioButton.setChecked(True)
         self.now = datetime.datetime.now()
-        self.listener = DataView.Listener()
-        self.listener.addObserver(self.todo_view)
+
+        self.listener.addObserver(self.todo_presenter)
         # self.radioButton_3.setEnabled(False)
         #completer
         self.setClientCompleter()
@@ -626,9 +636,9 @@ class OutputMainWindow(QtWidgets.QMainWindow, Ui_MainWindow, QComboBox):
         self.listener.addObserver(perspectiveView)
 
     def display_toDo(self):
-        condition = self.overall_project_search()
-        self.todo_view.setDataModel(condition)
-        self.todo_view.renderWidget()
+        # condition = self.overall_project_search()
+        # self.todo_presenter.setDataModel(condition)
+        self.todo_view.refresh()
         self.tabWidget.setCurrentIndex(2)
         self.listener.addObserver(self.todo_view)
 

@@ -12,7 +12,7 @@ class Ui_Form_1(object):
     def setupUi(self, Form_1):
         Form_1.setObjectName("Form_1")
         Form_1.resize(419, 302)
-        Form_1.setStyleSheet("")
+        # Form_1.setStyleSheet("")
         self.gridLayout = QtWidgets.QGridLayout(Form_1)
         self.gridLayout.setContentsMargins(6, 6, 6, 6)
         self.gridLayout.setVerticalSpacing(11)

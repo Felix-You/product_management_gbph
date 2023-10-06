@@ -4,15 +4,17 @@ import DataView
 from PyQt5 import QtCore, QtGui, QtWidgets, Qt
 from PyQt5.QtWidgets import QTextEdit, QSlider, QLineEdit, QCheckBox, QFrame, QDialogButtonBox, QCompleter,\
     QAbstractButton,\
-    QItemDelegate
+    QItemDelegate, QStyle, QStyleOption
 from PyQt5.QtCore import QStringListModel, Qt, QAbstractProxyModel, QModelIndex, QItemSelection, QRectF, QPointF, QTime,\
-    QUrl
+    QUrl, QTimer
 from PyQt5.QtGui import QBitmap, QPainter, QColor, QKeyEvent, QStandardItem, QStandardItemModel, QPixmap
 from PyQt5.Qt import QCursor, pyqtSignal, QEvent, QMouseEvent, QPoint
-from ID_Generate import Snow
-import ConnSqlite as CS
+
 import DataCenter, GColour, ToDoUnitUi
 import sys, types, os, re, time, csv, datetime, json
+
+import ToDoUnitUi_Cut1
+import ToDoUnitUi_Cut2
 from core.KitModels import CheckItem, FileArray, File, CheckPoint
 from core.GlobalListener import global_logger
 from DataCenter import office_job_dict
@@ -250,7 +252,7 @@ class MySlider(QSlider):
         X = attachedWidget.geometry().x() - 60
         Y = attachedWidget.geometry().y() + 20
         self.attachedView = attachedView
-        self.setGeometry(X, Y, 220, 20)
+        self.setGeometry(0, 0, 220, 20)
         self.setOrientation(Qt.Horizontal)
         self.setFocus()
 
@@ -1101,9 +1103,9 @@ class CheckableComboBox(QtWidgets.QComboBox):
         check_index = self.getCheckIndex()
         if len(check_index) == 0:  # 全不选，视为放弃使用此筛选，返回空tuple
             return ()
-        check_status = [0] * self.count()
+        check_status = [False] * self.count()
         for index in check_index:
-            check_status[index] = 1
+            check_status[index] = True
         self.checkStatus = check_status
         return tuple(check_status)
 
@@ -1156,6 +1158,7 @@ class LineEditDelegate(QItemDelegate):
 
     def createEditor(self, parent, option, index):
         if not self.editable_columns or index.column() in self.editable_columns:
+            self.parent.setHoldWindow()
             lineEdit = QtWidgets.QLineEdit(parent)
             if self.place_holders and index.column() < len(self.place_holders):
                 placeHolderText = self.place_holders[index.column()]
@@ -1164,6 +1167,7 @@ class LineEditDelegate(QItemDelegate):
             lineEdit.editingFinished.connect(lambda: self.parent.setFocus())
             lineEdit.editingFinished.connect(lambda: self.parent.setEdited())
             lineEdit.editingFinished.connect(lambda: self.parent.adjustRowCount(index.row()))
+            lineEdit.editingFinished.connect(lambda: self.parent.setHoldWindow(False))
             return lineEdit
         else:
             return super(LineEditDelegate, self).createEditor(parent, option, index)
@@ -1180,6 +1184,9 @@ class LineEditDelegate(QItemDelegate):
 
 class VectorEditTable(QtWidgets.QTableView):
     EditingFinished = pyqtSignal(list)
+    MouseEnter = pyqtSignal()
+    MouseLeave = pyqtSignal()
+    Close = pyqtSignal()
 
     def __init__(self, parent=None, h_header: list = None, data: list = None, place_holders: list = None,
                  attachedWidget: QtWidgets.QWidget = None, editable_columns: list = None, column_widths: list = None,
@@ -1190,6 +1197,7 @@ class VectorEditTable(QtWidgets.QTableView):
         self.parent = parent
         self.attachedWidget = attachedWidget  # 位置上跟随的空间
         self.edited = False  # 状态机，记录是在发生过编辑
+        self.hold_window = False
         # self.setWindowFlags(Qt.Popup|Qt.FramelessWindowHint)
         self.verticalHeader().setDefaultSectionSize(20)
         self.horizontalHeader().setDefaultSectionSize(80)
@@ -1197,7 +1205,10 @@ class VectorEditTable(QtWidgets.QTableView):
         self.verticalHeader().hide()
         self.setData(self.h_header, self.data, place_holders, editable_columns, column_widths, old_data_editable,
                      min_row_count)
-        self.parent.installEventFilter(self)
+        # self.parent.installEventFilter(self)
+
+    def setHoldWindow(self, hold:bool = True):
+        self.hold_window = hold
 
     def setEdited(self):
         self.edited = True
@@ -1245,6 +1256,8 @@ class VectorEditTable(QtWidgets.QTableView):
                     return
 
     def set_geometry(self, y_r, x_c, column_widths):
+
+        # compute width and height
         total_width = 0
         l = len(column_widths) if column_widths else 0
         for i in range(x_c):
@@ -1255,8 +1268,12 @@ class VectorEditTable(QtWidgets.QTableView):
                 total_width += 80
         total_width += 10
         total_height = y_r * 20 + 50
+
+        # compute x , y
+        ##  compute local x , y in coordinate system of attachedWidget's parent widget
         X_child = self.attachedWidget.geometry().x() + self.attachedWidget.geometry().width() / 2 - total_width / 2
         Y_child = self.attachedWidget.geometry().y() - total_height
+        ## compute global x, y
         parentAttr = self.attachedWidget.parent
         if isinstance(parentAttr, QtWidgets.QWidget):
             parent = parentAttr
@@ -1264,10 +1281,11 @@ class VectorEditTable(QtWidgets.QTableView):
             parent = parentAttr()
         else:
             raise AttributeError('object has no parent')
-        if hasattr(parent, 'horizontalHeader'):
+        if hasattr(parent, 'horizontalHeader'):# parent widget is tableWidget
             Y_child += parent.horizontalHeader().height()
-
+        ## map local x,y to global x,y
         global_coord_zero = parent.mapToGlobal(QPoint(int(X_child), int(Y_child)))
+        ## map global x,y to self.parent coordinate system
         application_coord_zero = self.parent.mapFromGlobal(global_coord_zero)
         X = application_coord_zero.x()
         Y = application_coord_zero.y()
@@ -1285,6 +1303,14 @@ class VectorEditTable(QtWidgets.QTableView):
         # self.attachedView = attachedView
         self.setGeometry(X, Y, total_width, total_height)
         self.setFocus()
+
+    def enterEvent(self, a0: QtCore.QEvent) -> None:
+        # self.mouse_entered = True
+        self.MouseEnter.emit()
+
+    def leaveEvent(self, a0: QtCore.QEvent) -> None:
+        # self.mouse_entered = False
+        self.MouseLeave.emit()
 
     def getData(self):
         rowCount = self.model.rowCount() - 1
@@ -1323,7 +1349,6 @@ class VectorEditTable(QtWidgets.QTableView):
                 data = self.getData()
                 self.EditingFinished.emit(data)
             self.playCloseAnimation()
-
             QtWidgets.QTableView.focusOutEvent(self, e)
 
     def playCloseAnimation(self):
@@ -1341,11 +1366,24 @@ class VectorEditTable(QtWidgets.QTableView):
     def deleteSelf(self):
         self.parent.removeEventFilter(self)
         self.close()
+        self.Close.emit()
         self.deleteLater()
 
+    def is_cursor_within(self):
+        cursor = self.parent.mapFromGlobal(QtGui.QCursor().pos())
+        geo = self.geometry()
+        return geo.contains(cursor)
+
     def eventFilter(self, object: QtCore.QObject, event: QtCore.QEvent) -> bool:
-        if event.type() == QEvent.MouseButtonPress:
-            self.clearFocus()
+        from apps.TodoPanel.TodoPanelWidget import WidgetGroupFrame
+        if isinstance(object, WidgetGroupFrame) and event.type() == QEvent.Leave:
+            if self.is_cursor_within():
+                return True
+            if self.hold_window == True:
+                return True
+            else:
+                self.deleteSelf()
+                return False
         return super().eventFilter(object, event)
 
     '''
@@ -1964,15 +2002,45 @@ class CheckLableBox(QtWidgets.QFrame):
                 check_names.append(self.labels[i][0])
         return tuple(check_names)
 
-class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
-    def conclusionDoubleClickEvent(self, obj):
-        data_json = self.model.conclusion_desc
-        log_eidt_table = JsonLogEditTable(self.parent, data=data_json, attachedWidget=obj)
-        log_eidt_table.EditingFinished.connect()
 
-    def __init__(self, parent=None, model=None, drag_drop_enabled = True):
+class ToDoUintControlPannel(QtWidgets.QFrame , ToDoUnitUi_Cut2.Ui_Form):
+    def __init__(self, parent=None):
+        super(ToDoUintControlPannel, self).__init__(parent)
+        self.setupUi(self)
+        self.isCritial_slideButton = SliderButton(parent=self, fontText='紧急')
+        # scaling_ratio  = min(1, DataView.DF_Ratio)
+        scaling_ratio = DataView.FIX_SIZE_WIDGET_SCALING
+        size = QtCore.QSize(40 * scaling_ratio, 22 * scaling_ratio)
+        self.isCritial_slideButton.setFixedSize(size)
+        self.isCritial_slideButton.setColourChecked(GColour.getAlphaColor(GColour.TaskColour.TaskIsCritial, 180))
+        self.verticalLayout_h_sliders.addWidget(self.isCritial_slideButton)
+
+        self.todoStatus_triSlideButton = TriSliderButton(parent=self, fontText=['未办', '进行', '完成'],
+                                                         colourStatus_1=(140, 150, 220, 150),
+                                                         colourStatus_2=(140, 220, 150, 150))
+        self.todoTimeSpaceDistance_triSliderButton = TriSliderButton(parent=self, fontText=['近时', '中期', '远期'],
+                                                                     colourStatus_1=(180, 180, 180, 150),
+                                                                     colourStatus_2=(150, 150, 150, 150)
+                                                                     )
+        self.horizontalLayout_v_sliders.addWidget(self.todoTimeSpaceDistance_triSliderButton, 0)
+        self.horizontalLayout_v_sliders.addWidget(self.todoStatus_triSlideButton, 1)
+        self.todoTimeSpaceDistance_triSliderButton.setFixedSize(30 * scaling_ratio, 46 * scaling_ratio)
+        self.todoStatus_triSlideButton.setFixedSize(30 * scaling_ratio, 46 * scaling_ratio)
+        self.lineEdit.setFixedSize(36 * scaling_ratio, 20 * scaling_ratio)
+        font = QtGui.QFont()
+        font.setPointSize(8 * scaling_ratio)
+        self.label.setFont(font)
+        self.label_2.setFont(font)
+
+class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi_Cut1.Ui_Form_1):
+    # def conclusionDoubleClickEvent(self, obj):
+    #     data_json = self.model.conclusion_desc
+    #     log_eidt_table = JsonLogEditTable(self.parent, data=data_json, attachedWidget=obj)
+    #     log_eidt_table.EditingFinished.connect()
+
+    def __init__(self, parent=None, parent_view=None, drag_drop_enabled = True):
         super(ToDoUnitWidget, self).__init__(parent)
-        self.setUpdatesEnabled(False)
+        # self.setUpdatesEnabled(False)
         # self.setE()
         self.setupUi(self)
         self.setObjectName('todo_unit')
@@ -1984,34 +2052,15 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
         #                    'QCommandLinkButton:{background-color: rgba(220,220,220,0);}'
         #                    'QLineEdit:{background:transparent}')
         self.parent = parent
-        self.model = model
+        self.parent_view = parent_view
+        # self.setAttribute(Qt.WA_StyledBackground,True)
+        # self.model = model
         self.drag_drop_enabled = drag_drop_enabled
-        self.isCritial_slideButton = SliderButton(parent=self, fontText='紧急')
-        # scaling_ratio  = min(1, DataView.DF_Ratio)
-        scaling_ratio = DataView.FIX_SIZE_WIDGET_SCALING
-        size = QtCore.QSize(40 *scaling_ratio, 22 * scaling_ratio)
-        self.isCritial_slideButton.setFixedSize(size)
-        self.isCritial_slideButton.setColourChecked(GColour.getAlphaColor(GColour.TaskColour.TaskIsCritial, 180))
-        self.verticalLayout_h_sliders.addWidget(self.isCritial_slideButton)
 
-        self.todoStatus_triSlideButton = TriSliderButton(parent=self, fontText=['未办', '进行', '完成'],
-                                                         colourStatus_1=(140, 150, 220, 150),
-                                                         colourStatus_2=(140, 220, 150, 150))
-        self.todoTimeSpaceDistance_triSliderButton = TriSliderButton(parent=self, fontText= ['近时','中期', '远期'],
-                                                            colourStatus_1=(180, 180, 180, 150),
-                                                            colourStatus_2=(150, 150, 150, 150)
-                                                            )
-        self.horizontalLayout_v_sliders.addWidget(self.todoTimeSpaceDistance_triSliderButton,0)
-        self.horizontalLayout_v_sliders.addWidget(self.todoStatus_triSlideButton, 1)
-        self.todoTimeSpaceDistance_triSliderButton.setFixedSize(30 * scaling_ratio, 46 * scaling_ratio)
-        self.todoStatus_triSlideButton.setFixedSize(30 * scaling_ratio, 46 * scaling_ratio)
-        self.lineEdit.setFixedSize(36 * scaling_ratio, 20 * scaling_ratio)
-        font = QtGui.QFont()
-        font.setPointSize(8 * scaling_ratio)
-        self.label.setFont(font)
-        self.label_2.setFont(font)
         self.textEdit.mouseDoubleClickEvent = types.MethodType(new_doubleClickEvent, self.textEdit)
-        self.groupBox.setStyleSheet(
+        self.control_panel = ToDoUintControlPannel(self)
+        self.control_panel.setFixedSize(240,65)
+        self.control_panel.groupBox.setStyleSheet(
             'QGroupBox{border-radius:5;border-style:solid;border-width:1;border-color:rgb(230,230,230)}')
         # 绑定重写的方法和属性
         self.textEdit.edited = False
@@ -2032,6 +2081,14 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
         self.textEdit_2.setReadOnly(True)
         self.setAcceptDrops(True)
         self.iniDragCor = [0, 0]
+        self.verticalLayout.addWidget(self.control_panel)
+        self.control_panel.hide()
+        self.timer = QTimer(self)
+        self.timerId = self.timer.timerId()
+        self.timer.timeout.connect(self.showExpand)
+        self.on_expanding = False
+        self.hold_enter_leave_event = False
+
         # self.setUpdatesEnabled(True)
         # self.Todo_Font_Style = 'font-family:Microsoft YaHei; font-weight:400; font-size: 16px'
 
@@ -2114,40 +2171,102 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
             self.label.setText('')
         self.isCritial_slideButton.setChecked(self.model.is_critical)
         self.todoStatus_triSlideButton.setCheckstatus(self.model.status)
-        self.style = ''
+        self.style_ = ''
         if self.model.conn_project_id:
             if self.model.conn_project_order_tobe:
                 self.textEdit.setStyleSheet('#textEdit{background:rgb%s; '
                                             '%s}' % (
                                                 str(GColour.ProjectRGBColour.ProjectOrderTobe), self.Todo_Font_Style))
-                self.style = self.textEdit.styleSheet()
+                self.style_ = self.textEdit.styleSheet()
             elif self.model.conn_project_clear_chance:
                 self.textEdit.setStyleSheet('#textEdit{background:rgb%s; '
                                             '%s}' % (
                                                 str(GColour.ProjectRGBColour.ProjectClearChance), self.Todo_Font_Style))
-                self.style = self.textEdit.styleSheet()
+                self.style_ = self.textEdit.styleSheet()
             elif self.model.conn_project_highlight:
                 self.textEdit.setStyleSheet('#textEdit{background:rgb%s; '
                                             '%s}' % (
                                                 str(GColour.ProjectRGBColour.ProjectHighlight), self.Todo_Font_Style))
-                self.style = self.textEdit.styleSheet()
+                self.style_ = self.textEdit.styleSheet()
             elif self.model.conn_project_in_act:
                 self.textEdit.setStyleSheet('#textEdit{background:rgb%s; '
                                             '%s}' % (
                                                 str(GColour.ProjectRGBColour.ProjectInAct), self.Todo_Font_Style))
-                self.style = self.textEdit.styleSheet()
+                self.style_ = self.textEdit.styleSheet()
             else:
                 self.textEdit.setStyleSheet('#textEdit{%s}' % self.Todo_Font_Style)
-                self.style = self.textEdit.styleSheet()
+                self.style_ = self.textEdit.styleSheet()
                 pass
         else:
             self.textEdit.setStyleSheet('#textEdit{%s}' % self.Todo_Font_Style)
-            self.style = self.textEdit.styleSheet()
+            self.style_ = self.textEdit.styleSheet()
 
         if self.model.is_critical:
             self.textEdit.setStyleSheet('#textEdit{background:rgb%s; '
                                         '%s}' % (str(GColour.getAlphaColor(GColour.TaskColour.TaskIsCritial, 180)),
                                                  self.Todo_Font_Style))
+
+    def enterEvent(self, a0: QtCore.QEvent) -> None:
+        if self.hold_enter_leave_event:
+            return
+        print('enter ',self, 'on_expanding state', self.on_expanding)
+        print('--- timer start in enter, timer id', self.timer.timerId())
+        self.timer.start(500)
+        print('start timer id',self.timer.timerId())
+        pass
+
+    def blockMouseEvent(func):
+        '''decorate functions that can cause undesirable mouse events'''
+        def wrapper(*args, **kwargs):
+            args[0].hold_enter_leave_event = True
+            ret = func(*args, **kwargs)
+            args[0].hold_enter_leave_event = False
+            return ret
+        return wrapper
+
+    @blockMouseEvent
+    def showExpand(self):
+        print(self,'Timer stop in expand, timer id', self.timer.timerId())
+        self.timer.stop()
+        if self.on_expanding:
+            # This function could be trigger by differen user behaviors,
+            # and should be blocked when the widget is expanded.
+            return
+        self.on_expanding = False
+        self.old_parent = self.parentWidget()
+        self.old_geo = self.geometry()
+        old_place = self.parent.mapToGlobal(self.old_geo.topLeft())
+        new_parent = self.parent.parentWidget()
+        new_place = new_parent.mapFromGlobal(old_place)
+        self.setParent(new_parent)
+        self.move(new_place)
+        self.setFixedSize(250, 150)
+        self.raise_()
+        self.show()
+        self.on_expanding = True
+        self.control_panel.show()
+        # self.setParent(new_parent)
+
+    @blockMouseEvent
+    def showNested(self):
+        if self.on_expanding == False:
+            return
+        self.control_panel.hide()
+        self.setParent(self.old_parent)
+        self.setFixedSize(250, 100)
+        self.move(self.old_geo.topLeft())
+        self.show()
+        self.on_expanding = False
+
+    def leaveEvent(self, a0: QtCore.QEvent) -> None:
+        if self.hold_enter_leave_event:
+            return
+        print(self, 'Timer stop in leave, timer id', self.timer.timerId())
+        self.timer.stop()
+        if self.on_expanding:
+            # print('trigger nest')
+            self.showNested()
+
 
     def setDragDropEnabled(self, d0 = True):
         self.drag_drop_enabled = d0
@@ -2161,15 +2280,12 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
     #     pass
 
     def mousePressEvent(self, e):
-        # print("ppp", e.pos())
         if self.drag_drop_enabled:
             self.iniDragCor[0] = e.x()
             self.iniDragCor[1] = e.y()
-        # self.setFocus()
         super(ToDoUnitWidget, self).mousePressEvent(e)
 
     def mouseMoveEvent(self, e):
-
         if e.buttons() == Qt.RightButton:
             return
         if not self.drag_drop_enabled:
@@ -2182,9 +2298,8 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
         # self.move(self.mapToParent(cor))
         # print("p_p", coor)
         mimeData = QtCore.QMimeData()
-        mimeData.setText(str(self.model._id))
+        mimeData.setText(str(self.parent_view.data['_id']))
         image = self.grab()
-
         temp = QPixmap(image.size())
         temp.fill(Qt.transparent)
         p = QPainter(temp)
@@ -2201,8 +2316,13 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
         # self.parentWidget().remo
         dropAction = drag.exec_(Qt.MoveAction)
 
-    def paintEvent(self, a0: QtGui.QPaintEvent) -> None:
-        super(ToDoUnitWidget, self).paintEvent(a0)
+    # def paintEvent(self, e):
+    #     print('paint todo unit')
+    #     # o = QStyleOption()
+    #     # o.initFrom(self)
+    #     # p = QPainter(self)
+    #     # self.style().drawPrimitive(QStyle.PE_Widget, o, p, self)
+    #     super(ToDoUnitWidget, self).paintEvent(e)
 
     def dropEvent(self, a0: QtGui.QDropEvent) -> None:
         if not a0.source().__class__ is ToDoUnitWidget:
@@ -2212,11 +2332,10 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
         if not self.drag_drop_enabled:
             return
         source_id = a0.mimeData().text()
-        target_id = self.model._id
+        target_id = self.parent_view.data['_id']
         # a0.setDropAction(Qt.MoveAction)
         a0.acceptProposedAction()
-
-        self.parent.todo_view.handleTodoUnitDrop(source_id, target_id)
+        self.parent_view.handleTodoUnitDrop(source_id, target_id)
         # self.parent.todo_view.removeWidgets(start=self_weight - 1, stop=source_weight - 1)
         # # self.parent.todo_view.bound_widget.clear()
         # self.parent.todo_view.resetUnitWidgets(start=self_weight - 1, stop=source_weight - 1)
@@ -2224,6 +2343,7 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi.Ui_Form_1):
 
     def focusOutEvent(self, a0: QtGui.QFocusEvent) -> None:
         pass
+
 
 class EmptyDropFrame(QFrame):
     '''container for todo_widget'''

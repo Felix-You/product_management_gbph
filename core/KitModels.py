@@ -93,15 +93,19 @@ class AbstractDataObject(object):
 
     @classmethod
     def getDataFields(cls):
+        if not cls.table_name:
+            raise AttributeError('class %s is abstract, so its corresponding table name in database '
+                                 'has not been assigned.'%cls)
         if cls.table_name in data_model_field_cache:
             data_fields = data_model_field_cache[cls.table_name]
         else:
-            data_fields = CS.getTableFields(cls.table_name)
+            data_fields = set(CS.getTableFields(cls.table_name))
             data_model_field_cache[cls.table_name] = data_fields
         return data_fields
 
     def saveBasicData(self):
-        """保存该类的基本字段，不包括关联的类实例的字段内容"""
+        """Save the basic attributes of the model to database，which does not include the temporary attributes or
+        attributes got from other models."""
         fields = []
         values = []
         for field in self.data_fields:
@@ -128,7 +132,8 @@ class AbstractDataObject(object):
         pass
 
     def load_basic_data(self, _id: str = None, order: list=None):
-        """加载对应类实例的基本字段，不包含关联的类"""
+        """Load the basic fields of the model from database，which does not include the temporary attributes or
+        attributes got from other models."""
 
         if not _id:
             _id = self._id
@@ -270,6 +275,7 @@ class LogType(DataObject):
         self._id = None
         self.create_time = None
         self.update_time = None
+        # self.data = {} # external data , from out of the model
         #将已有字段的名称保存成集合
         # class_data_fields = [attr for attr in dir(self) if not callable(getattr(self, attr)) and \
         #                      not attr.startswith("__") and not isinstance(getattr(self, attr), list)]
@@ -285,7 +291,33 @@ class LogType(DataObject):
         '''增加或更新记录'''
         self.saveBasicData()
 
+    def __setattr__(self, key, value):
+        '''use a dict "data" to store data attribes out of basic fields of model.'''
+        if key in super(LogType, self).__getattribute__('getDataFields')() or key == 'data_fields':
+            return super(LogType, self).__setattr__(key, value)
+        if not hasattr(self,'data'):
+            super(LogType, self).__setattr__('data', {})
+        super(LogType, self).__getattribute__('data')[key] = value
 
+    def __getattribute__(self, item):
+        '''use a dict "data" to store data attribes out of basic fields of model.'''
+        if item == 'data_fields' :
+            return super(LogType, self).__getattribute__('getDataFields')()
+        if item == 'data':
+            return super(LogType, self).__getattribute__('data')
+        data = super(LogType, self).__getattribute__('data')
+        if item in data:
+            return data[item]
+        return super(LogType, self).__getattribute__(item)
+
+    def getModelAttribData(self):
+        fields = self.data_fields
+        model = self
+        data = {}
+        for field in fields:
+            data[field] = model.__getattribute__(field)
+        data.update(model.data)
+        return data
 
     def saveByInsert(self):
         '''仅适用于明确是新创建的记录，否则会产生数据库 unique constraint violated'''
@@ -501,7 +533,6 @@ class DataOjectWithFileField(DataObject):
     def remove_file(self):
         pass
 
-
 class DataOjectWithMultiFileFields(DataObject):
     HAS_FILE = False
     file_fields = ()
@@ -627,7 +658,7 @@ class Person(DataObject):
 
 
 class Staff(Person):
-    table_name = None
+    # table_name = None
     def __init__(self, _id:str = None):
         super(Staff, self).__init__()
         self._id = _id
@@ -647,7 +678,7 @@ class Staff(Person):
     def load_career(self):
         pass
 
-    def assign_data(self,keys,values):
+    def assign_data(self, keys, values):
         for i , key in enumerate(keys):
             if hasattr(self, key):
                 setattr(self,key,values[i])
@@ -659,6 +690,9 @@ class Personnel(DataObject):
         super(Personnel, self).__init__()
         self.staff = []# 员工列表，保存Person实例
         self.staff_adjusted = []
+
+    def saveBasicData(self):
+        raise NotImplementedError('%s is a json data field of model Company, and it does not have its own database table.'%self.__class__)
 
     def loadFromJson(self, data: str):
         if not data:
@@ -687,6 +721,9 @@ class Personnel(DataObject):
             person_log.job_title = staff.tittle
             person_log.in_service = staff.in_service
             person_log.addPersonLog()
+
+    def getDataFields(cls):
+        return []
 
     def dumpToJson(self):
         personnel_list_data = []

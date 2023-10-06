@@ -885,6 +885,12 @@ class ToDo(LogType):
                 # task = dict(zip(task_fields, conn_task[0]))
                 self.conn_task_cat = conn_task[0][0]
 
+    def isPriority(self):
+        if self.is_critical or self.conn_project_clear_chance or self.conn_project_order_tobe:
+            return True
+        else:
+            return False
+
 
 class TargetFlag(Enum):
     '''操作对象的枚举'''
