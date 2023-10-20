@@ -243,7 +243,18 @@ class TodoUnitView(View):
             cmd = DataCenter.GTaskCmd('update', _id=self.data['conn_task_id'],
                                       conn_company_name=self.data['conn_company_id'],
                                       source_widget=self.parent_view.tab_bar, fields_values=fields_values)
-            self.presenter.listener.accept(cmd)
+            self.parent_view.listener.accept(cmd)
+
+    def updateConnectedTask(self, field_value:dict):
+        fields_values = {}
+        fields_values['_id'] = self.data['conn_task_id']
+        fields_values['conn_project_id'] = self.data['conn_project_id']
+        fields_values.update(field_value)
+        # self.presenter.update_other_model('tasks', fields_values)
+        update_cmd = DataCenter.GTaskCmd('update', _id=self.data['conn_task_id'],
+                                         conn_company_name=self.data['conn_company_id'],
+                                         source_widget=self.parent_view.tab_bar, fields_values=fields_values)
+        self.presenter.update_other_model('tasks', update_cmd)
 
     def on_company_clicked(self):
         self.presenter.handleShowOtherModel('clients', model_id=self.data['conn_company_id'])
@@ -266,10 +277,10 @@ class TodoUnitView(View):
             fields_values['_id'] = self.data['conn_task_id']
             fields_values['is_critical'] = self.data['is_critical']
             fields_values['conn_project_id'] = self.data['conn_project_id']
-            # self.presenter.update_other_model('tasks', fields_values)
             update_cmd = DataCenter.GTaskCmd('update', _id=self.data['conn_task_id'], conn_company_name=self.data['conn_company_id'],
                                       source_widget=self.parent_view.tab_bar, fields_values=fields_values)
             self.presenter.update_other_model('tasks', update_cmd)
+
 
     def on_todoTimeSpaceDistance_triSlideButton_toggled(self, distance):
         self.data['timespace_distance'] = distance
@@ -277,10 +288,11 @@ class TodoUnitView(View):
 
     def on_todoStatus_triSlideButton_toggled(self, status):
         # status = self.todoWidget.todoStatus_triSlideButton.checkStatus
+        old_todo_id = self.data['_id']
         if status == 2:
             ok = self.pushFoward()
-        self.data['status'] = status
-        self.presenter.update_basic_field(self.data['_id'], {'status':status})
+        # self.data['status'] = status
+        self.presenter.update_basic_field(old_todo_id, {'status' : status})
 
     def on_conclusion_desc_update(self, json_data:str):
         self.data['conclusion_desc'] = json_data
@@ -288,11 +300,11 @@ class TodoUnitView(View):
         self.todoWidget.textEdit_2.setText(log_text)
         self.presenter.update_basic_field(id = self.data['_id'],
                                           field_values = {'conclusion_desc': self.data['conclusion_desc']})
-        # self.updateConnData()
+        self.updateConnData()
 
     def on_pending_activated(self):
-        self.slider = RedefinedWidget.MySlider(attachedWidget=self.todoWidget.pushButton_4,
-                                               attachedView=self, parent=self.todoWidget.groupBox)
+        self.slider = RedefinedWidget.MySlider(attachedWidget=self.todoWidget.control_panel.pushButton_4,
+                                               attachedView=self, parent=self.todoWidget.control_panel.groupBox)
         self.slider.setRange(1,35)
         self.todoWidget.control_panel.pushButton_4.setChecked(True)
         if self.todoWidget.control_panel.lineEdit.text() == '':
@@ -337,25 +349,25 @@ class TodoUnitView(View):
         self.presenter.update_basic_field(self.data['_id'], {'on_pending': True, 'pending_till_date': str(pending_till_date)})
 
     def on_slider_close(self):
-        if not self.todoWidget.lineEdit.text():# 未输入数字的时候，出现editingFinished信号，直接忽略
+        if not self.todoWidget.control_panel.lineEdit.text():# 未输入数字的时候，出现editingFinished信号，直接忽略
             return
-        if self.todoWidget.lineEdit.hasFocus():# 如果焦点是从slider直接跳转到了lineEdit，即说明输入尚未完成
+        if self.todoWidget.control_panel.lineEdit.hasFocus():# 如果焦点是从slider直接跳转到了lineEdit，即说明输入尚未完成
             return
         self.data['on_pending'] = True
-        pending_days = int(self.todoWidget.lineEdit.text())
+        pending_days = int(self.todoWidget.control_panel.lineEdit.text())
         if pending_days == 0:
-            self.todoWidget.lineEdit.setEnabled(False)
-            self.todoWidget.lineEdit.setText('')
-            self.todoWidget.label.setText('')
-            self.todoWidget.pushButton_5.setEnabled(False)
-            self.todoWidget.pushButton_4.setChecked(False)
+            self.todoWidget.control_panel.lineEdit.setEnabled(False)
+            self.todoWidget.control_panel.lineEdit.setText('')
+            self.todoWidget.control_panel.label.setText('')
+            self.todoWidget.control_panel.pushButton_5.setEnabled(False)
+            self.todoWidget.control_panel.pushButton_4.setChecked(False)
             self.data['on_pending'] = False
             self.data['pending_till_date'] = None
             self.presenter.update_basic_field(self.data['_id'], {'on_pending': False, 'pending_till_date':None})
             return
         today = datetime.datetime.today().date()
         pending_till_date = today + datetime.timedelta(days=(pending_days))
-        self.todoWidget.label.setText(str(pending_till_date))
+        self.todoWidget.control_panel.label.setText(str(pending_till_date))
         self.data['pending_till_date'] = str(pending_till_date)
         self.presenter.update_basic_field(self.data['_id'], {'on_pending': self.data['on_pending'],
                                            'pending_till_date': self.data['pending_till_date']})
@@ -392,17 +404,17 @@ class TodoUnitView(View):
         Message.setWindowTitle('下推')
         Message.setText('完成当前任务\n是否创建并下推到新任务？')
         # Message.setDetailedText()
-        Message.setStandardButtons(QMessageBox.Yes|QMessageBox.No)
+        Message.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         Message.setDefaultButton(QMessageBox.No)
         Message.setGeometry(target_location.x(), target_location.y(), 150, 100)
-        print('pop out message')
+        # print('pop out message')
         ok = Message.exec()
         # Message.move(target_location)
         # ok  = Message.question(self.parent_view.parent_widget,'下推', '完成当前任务\n是否创建并下推到新任务？',
         #                            QMessageBox.Yes|QMessageBox.No,QMessageBox.No)
         if ok == QMessageBox.Yes:
-            ok = self.parent_view.push_todo_unit_forward(self.data['_id'])
-            return ok
+            ok_ = self.parent_view.push_todo_unit_forward(self.data['_id'])
+            return ok_
         else:
             return False
 

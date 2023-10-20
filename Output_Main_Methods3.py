@@ -244,7 +244,7 @@ class OutputMainWindow(QtWidgets.QMainWindow, Ui_MainWindow, QComboBox):
         self.radioButton.setChecked(True)
         self.now = datetime.datetime.now()
 
-        self.listener.addObserver(self.todo_presenter)
+        self.listener.addObserver(self.todo_view)
         # self.radioButton_3.setEnabled(False)
         #completer
         self.setClientCompleter()
@@ -255,6 +255,7 @@ class OutputMainWindow(QtWidgets.QMainWindow, Ui_MainWindow, QComboBox):
         self.lineEdit.setMaximumHeight(30*DataView.DF_Ratio)
         self.lineEdit_2.setMaximumHeight(30*DataView.DF_Ratio)
         self.resize(1078*DataView.DF_Ratio, 750*DataView.DF_Ratio)
+        QApplication.setOverrideCursor(Qt.ArrowCursor)
         # self.setStyleSheet('QCheckBox::indicator{height:%s;width:%s;}'%(13 * DataView.DF_Ratio, 13 * DataView.DF_Ratio))
         #开启检查文件的线程
         # self.file_thread = threading.Thread(target=self.checkInitFiles())

@@ -531,7 +531,7 @@ class OverView(View):
         self.secondary_clients.clear()
         self.current_clients = self.secondary_clients
         self.clearStatistics()
-        for i , client in enumerate(self.clients):
+        for i, client in enumerate(self.clients):
             secondary_client = copy.deepcopy(client)
             is_client_select = 0
             for j in reversed(range(len(secondary_client.projects))):
@@ -1400,8 +1400,8 @@ class PerspectiveView(View):
                 self.renderTaskUnit()#接收完成
                 return
 
-        for k, task in enumerate(self.project.tasks) :
-            if task_id == task._id :
+        for k, task in enumerate(self.project.tasks):
+            if task_id == task._id:
                 if cmd.operation == 1 :  # update
                     task.assign_data(list(cmd.fields_values.keys()), list(cmd.fields_values.values()))
                     task.pending_till_date = pending_till_date
@@ -1411,7 +1411,7 @@ class PerspectiveView(View):
                     del self.project.tasks[k]
                 if source_widget is self.tab_bar or self.accept_state.accept_complete == False:
                     return
-                else :
+                else:
                     self.renderTaskUnit()
         else :
             return

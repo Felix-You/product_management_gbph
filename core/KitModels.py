@@ -597,14 +597,13 @@ class CompanyLog(LogType):
     table_name = 'client_log'
     def __init__(self, company_catelog:str = None):
         #首先对类属性进行初始化
+        super(CompanyLog, self).__init__()
         self.log_desc = None
         if company_catelog == 'client':
             self.setTableName('client_log')
         elif company_catelog == 'supplier':
             self.setTableName('supplier_log')
         self.company_id = None
-        #初始化父类
-        super(CompanyLog, self).__init__()
         #将以上字段的名称保存成列表
         # class_data_fields = [attr for attr in dir(self) if not callable(getattr(self, attr)) and not attr.startswith("__")]
         # self.data_fields = self.data_fields.union(set(class_data_fields))

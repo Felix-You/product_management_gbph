@@ -106,6 +106,7 @@ class ToDoUnitCreator():
         self.json_model_data = json.dumps(fields_values)
 
     def broadCastTaskUpdate(self, as_new_task:bool):
+        return # This broadcast is for related model 'task'. For it's from the View, it should be launched by the View,
         if not self.model.conn_company_id or not self.model.conn_project_id:
             return
 
@@ -120,7 +121,7 @@ class ToDoUnitCreator():
             if self.initial_task_id:  # 来源是projectTabBar等可以指定具体task_id的控件，此时强制要求接收source_widget接收广播
                 source_widget = None
             else:
-                source_widget = self.parent_widget.todo_view.tab_bar  # 来源仅仅是追踪模式的tab_bar
+                source_widget = self.parent_presenter.view.tab_bar  # 来源仅仅是追踪模式的tab_bar
             cmd = DataCenter.GTaskCmd('update', _id=task_fields_values['_id'], fields_values=task_fields_values,
                                       source_widget=source_widget,
                                       conn_company_name=self.model.conn_company_id)
@@ -136,11 +137,11 @@ class ToDoUnitCreator():
             else:
                 task_fields_values['inter_order_weight'] = len(existing_task) + 1
             task_fields_values['create_time'] = self.model.create_time
-            source_widget = self.parent_widget.todo_view.tab_bar  # 来源仅仅是追踪模式的tab_bar
+            source_widget = self.parent_presenter.view.tab_bar  # 来源仅仅是追踪模式的tab_bar
             cmd = DataCenter.GTaskCmd('insert', _id=task_fields_values['_id'], fields_values=task_fields_values,
                                       source_widget=source_widget,
                                       conn_company_name=self.model.conn_company_id)
-        self.parent_widget.listener.accept(cmd)
+        self.parent_presenter.listener.accept(cmd)
 
     def setModelFieldsValues(self, fields_values:dict):
         '''

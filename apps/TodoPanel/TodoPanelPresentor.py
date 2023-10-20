@@ -254,6 +254,7 @@ class TodoPanelPresenter:
     COMPANY_KEY_ALIAS_FIELD = ('conn_company_id', 'conn_company_name') # (field_name_of_database, field_to_show_user)
     JOBTYPE_KEY_ALIAS_FIELD = ('officejob_type', None)
     PROJECT_KEY_ALIAS_FIELD = ('conn_project_name', 'conn_project_name')
+
     def __init__(self,parent=None):
         super(TodoPanelPresenter, self).__init__()
         self.parent = parent
@@ -757,7 +758,7 @@ class TodoPanelPresenter:
         else:
             self.accept_state.argAccepted(cmd._id)
 
-        global_logger.debug('todo_view accepted')
+        # global_logger.debug('todo_view accepted')
         target_flag = cmd.flag
         if target_flag  == 1:#project
            return
@@ -767,50 +768,51 @@ class TodoPanelPresenter:
             return
 
     def acceptTaskCmd(self,cmd):
-        global_logger.debug('Todo accepted task')
-        # client_name = cmd.conn_company_name
-        conn_task_id = cmd._id
-        source_widget = cmd.source_widget
-        if source_widget is self.view.tab_bar:
-            return
-        # 查找被修改的todo_unit的位置
-
-        index_in_units = None
-        index_in_units_for_render = None
-        for k, todo_model in enumerate(self.units) :
-            if conn_task_id == todo_model.conn_task_id :
-                index_in_units = k
-                break
-        else:
-            return
-        for i, todo_model in enumerate(self.units_for_render):
-            if conn_task_id == todo_model.conn_task_id:
-                index_in_units_for_render = i
-                break
-        else:
-            pass
-
-        if cmd.operation == 4:  # delete
-            if not index_in_units_for_render is None:# 如果操作是删除，先单独对units_for_render列表执行pop()
-                self.units_for_render.pop(index_in_units_for_render)
-            self.units.pop(index_in_units)
-            for i, todo_model in enumerate(self.units):
-                todo_model.inter_order_weight = i + 1
-            if self.accept_state.accept_complete:
-                self.makeTodoGridModel()
-        elif cmd.operation == 1:  # update
-            todo_model = self.units[index_in_units]
-            if 'task_desc' in cmd.fields_values.keys():
-                todo_model.conn_task_desc = cmd.fields_values['task_desc']
-                todo_model.todo_desc = cmd.fields_values['task_desc']
-                todo_model.conclusion_desc = cmd.fields_values['update_desc_list']
-            if 'is_critical' in cmd.fields_values.keys():
-                todo_model.is_critical = cmd.fields_values['is_critical']
-            if 'officejob_type' in cmd.fields_values.keys():
-                todo_model.officejob_type = cmd.fields_values['officejob_type']
-
-            if self.accept_state.accept_complete and not index_in_units_for_render is None:
-                coord = self.todo_id_map[self.units_for_render[index_in_units_for_render]._id]
+        pass
+        # global_logger.debug('Todo accepted task')
+        # # client_name = cmd.conn_company_name
+        # conn_task_id = cmd._id
+        # source_widget = cmd.source_widget
+        # if source_widget is self.view.tab_bar:
+        #     return
+        # # 查找被修改的todo_unit的位置
+        #
+        # index_in_units = None
+        # index_in_units_for_render = None
+        # for k, todo_model in enumerate(self.units) :
+        #     if conn_task_id == todo_model.conn_task_id :
+        #         index_in_units = k
+        #         break
+        # else:
+        #     return
+        # for i, todo_model in enumerate(self.units_for_render):
+        #     if conn_task_id == todo_model.conn_task_id:
+        #         index_in_units_for_render = i
+        #         break
+        # else:
+        #     pass
+        #
+        # if cmd.operation == 4:  # delete
+        #     if not index_in_units_for_render is None:# 如果操作是删除，先单独对units_for_render列表执行pop()
+        #         self.units_for_render.pop(index_in_units_for_render)
+        #     self.units.pop(index_in_units)
+        #     for i, todo_model in enumerate(self.units):
+        #         todo_model.inter_order_weight = i + 1
+        #     if self.accept_state.accept_complete:
+        #         self.makeTodoGridModel()
+        # elif cmd.operation == 1:  # update
+        #     todo_model = self.units[index_in_units]
+        #     if 'task_desc' in cmd.fields_values.keys():
+        #         todo_model.conn_task_desc = cmd.fields_values['task_desc']
+        #         todo_model.todo_desc = cmd.fields_values['task_desc']
+        #         todo_model.conclusion_desc = cmd.fields_values['update_desc_list']
+        #     if 'is_critical' in cmd.fields_values.keys():
+        #         todo_model.is_critical = cmd.fields_values['is_critical']
+        #     if 'officejob_type' in cmd.fields_values.keys():
+        #         todo_model.officejob_type = cmd.fields_values['officejob_type']
+        #
+        #     if self.accept_state.accept_complete and not index_in_units_for_render is None:
+        #         coord = self.todo_id_map[self.units_for_render[index_in_units_for_render]._id]
 
 
     def handleShowExternalModel(self, model_name, model_id):

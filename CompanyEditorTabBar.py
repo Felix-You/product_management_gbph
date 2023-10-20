@@ -354,7 +354,7 @@ class CompanyEditorTabBar(QTabBar,Ui_CompanyEditorUi):
         pass
 
     def on_add_log_clicked(self):
-        text, ok = QInputDialog.getMultiLineText(self,'记录内容','请输入记录内容')
+        text, ok = QInputDialog.getMultiLineText(self, '记录内容', '请输入记录内容')
         row_count = self.tableView_log_model.rowCount()
         datetime_now = datetime.datetime.now()
         if ok:

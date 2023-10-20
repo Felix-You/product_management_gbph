@@ -1,5 +1,4 @@
 from functools import partial
-
 import RedefinedWidget
 from apps.ProjectPerspective import CheckPointEditor
 from apps.ProjectPerspective.CheckPointEditor import CheckpointEditor
@@ -14,7 +13,7 @@ from PyQt5 import QtGui
 import ConnSqlite as CS
 import math,time,types,datetime
 from DataCenter import GTaskCmd,TaskType,GMemoCmd,GProjectCmd,GMeetingCmd,BroadcastSpace, progress_code ,progress_code_r
-
+import apps
 from ID_Generate import Snow
 from projectTabBarUi import QtWidgets
 from RedefinedWidget import VectorEditTable,ComboBoxDialog
@@ -381,8 +380,6 @@ class ProjectTabBar(QTabBar,Ui_projectTabBar):
         self.label_pending_till_date.setFont(font)
 
         self.button_is_deal.setFixedSize(QSize(70 * DF_Ratio, 30 * DF_Ratio))
-
-
         self.verticalGroupBox.layout().insertWidget(0,self.button_order_tobe, 0, Qt.AlignCenter)
         self.verticalGroupBox.layout().insertWidget(1,self.button_clear_chance, 0, Qt.AlignCenter)
         self.verticalGroupBox.layout().insertWidget(2,self.button_in_act, 0, Qt.AlignCenter)
@@ -391,7 +388,6 @@ class ProjectTabBar(QTabBar,Ui_projectTabBar):
         self.groupBox_status.layout().insertWidget(1,self.label_task_status,0,Qt.AlignCenter)
         self.groupBox_status.layout().insertWidget(2, self.label_pending_till_date, 0, Qt.AlignCenter)
         self.groupBox_status.layout().insertWidget(3, self.button_task_urgent, 0, Qt.AlignCenter)
-
         self.groupBox_deal.layout().addWidget(self.button_is_deal)
         self.groupBox_deal.layout().setAlignment(self.button_is_deal,Qt.AlignCenter)
         self.button_order_tobe.toggled.connect(self.on_order_tobe)
@@ -1654,5 +1650,7 @@ class ProjectTabBar(QTabBar,Ui_projectTabBar):
         #如果跳过新增task，直接新增todo, 可以通过启动广播来新增task
         if not nTaskNum :
             nTaskNum = self.project.current_task_num-1 if self.project.tasks else None
-        DataView.ToDoView.add_todo_log(self.parent, conn_company_id=self.project.client_id,conn_project_id=self.project._id,
-                                       conn_task_id=self.project.tasks[nTaskNum]._id if nTaskNum is not None else None)
+        apps.TodoPanel.TodoPanelView.ToDoPanelView.add_todo_log(self.parent, conn_company_id=self.project.client_id,
+                                                                conn_project_id=self.project._id,
+                                       conn_task_id=self.project.tasks[nTaskNum]._id if nTaskNum is not None else None,
+                                                                parent_presenter= self.parent)

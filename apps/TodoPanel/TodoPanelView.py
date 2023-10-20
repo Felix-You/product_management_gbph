@@ -64,8 +64,9 @@ class ToDoPanelView():
         self.tab_bar.pushButton.clicked.connect(self.on_add_new_todo)
         self.check_status = self.tab_bar.getCheckStatus()
         self.tab_bar.comboBox_order.currentIndexChanged.connect(self.on_arrange_strategy_change)
-        self.todo_id_view_dict = {}
+        self.todo_id_view_dict:dict[TodoUnitView] = {}
         self.group_info = None
+        self.listener = self.parent.listener
 
 
     def updateControl(func):
@@ -116,7 +117,6 @@ class ToDoPanelView():
                 for id, hidden in group:
                     unit_view = self.todo_id_view_dict[id]
                     unit_view.presenter = self.presenter.todoUnitPresentor
-
                     if not hidden:
                         widgets[0].append(id)
                     else:
@@ -129,6 +129,7 @@ class ToDoPanelView():
 
 
     def acceptRefresh(self, json_group_info:str):
+        '''Need HTTP persistent connection'''
         group_info = json.loads(json_group_info)
         self.group_info = group_info
         self.setupPanel()
@@ -296,17 +297,6 @@ class ToDoPanelView():
         self.bound_widget_header.verticalHeader().setDefaultSectionSize(int(max_header_text_height + 2))
 
 
-    def renderWidget(self):
-        # 对todo_units进行分类整理
-        self.resetUnitWidgets()
-        if not self.units_for_render:
-            QMessageBox.about(self.parent, "未找到", "未找到符合的待办事项")
-            return
-        self.todo_view_header_array.clear()
-        todo_view_matrix, self.todo_view_header_array = self.makeTodoViewMatrix()
-        self.renderTableWidget(todo_view_matrix)
-        self.renderTableWidget_header(self.todo_view_header_array)
-
 
     def on_check_status_changed(self, check_status):
         before_load_todo = time.perf_counter()
@@ -350,7 +340,8 @@ class ToDoPanelView():
                                              conn_project_id = todo_view.data['conn_project_id'])
         if ok:
             data = json.loads(json_todo_model)
-            todo_view.updateData(data)
+            new_todo_id = data['_id']
+            todo_view.intit_data(data)
             todo_view.updateWidget()
             return True
         else:
@@ -446,3 +437,78 @@ class ToDoPanelView():
                                     parent_presenter = parent_presenter, conn_task_id=conn_task_id)
         ok, json_model_data = creator.createWithDialog(parent_widget)
         return ok, json_model_data
+
+    def Accept(self, cmd):
+        if cmd.broadcast_space is None:
+            #如果收到的广播命令没有绑定广播域，则将接收状态重置，并设定到接收完成状态
+            self.accept_state.__init__()
+            self.accept_state.acceptComplete()
+        elif self.accept_state.accept_ID != cmd.broadcast_space.broadcast_ID:#接收到了新的广播域
+            #重置接收状态
+            self.accept_state.__init__(cmd.broadcast_space.broadcast_ID, cmd.broadcast_space.broadcast_names)
+            self.accept_state.argAccepted(cmd._id)
+        else:
+            self.accept_state.argAccepted(cmd._id)
+
+        global_logger.debug('todo_view accepted')
+        target_flag = cmd.flag
+        if target_flag  == 1:#project
+           return
+        elif target_flag == 2:#task
+            self.acceptTaskCmd(cmd)
+        else:
+            return
+
+    def acceptTaskCmd(self, cmd):
+        global_logger.debug('TodoView accepted task')
+        # client_name = cmd.conn_company_name
+        conn_task_id = cmd._id
+        source_widget = cmd.source_widget
+        if source_widget is self.tab_bar:
+            return
+        target_todo_id = ''
+        for todo_id, todo_unit in self.todo_id_view_dict.items():
+            if conn_task_id == todo_unit.data['conn_task_id']:
+                target_todo_id = todo_id
+                break
+        else:
+            return
+        # 查找被修改的todo_unit的位置
+        #
+        # index_in_units = None
+        # index_in_units_for_render = None
+        # for k, todo_model in enumerate(self.units) :
+        #     if conn_task_id == todo_model.conn_task_id :
+        #         index_in_units = k
+        #         break
+        # else:
+        #     return
+        # for i, todo_model in enumerate(self.units_for_render):
+        #     if conn_task_id == todo_model.conn_task_id:
+        #         index_in_units_for_render = i
+        #         break
+        # else:
+        #     pass
+
+        if cmd.operation == 4:  # delete
+            # if not index_in_units_for_render is None:# 如果操作是删除，先单独对units_for_render列表执行pop()
+            #     self.units_for_render.pop(index_in_units_for_render)
+            # self.units.pop(index_in_units)
+            # for i, todo_model in enumerate(self.units):
+            #     todo_model.inter_order_weight = i + 1
+            if self.accept_state.accept_complete:
+                pass
+        elif cmd.operation == 1:  # update
+            print('TodoView accepted task update.')
+            todo_unit_view = self.todo_id_view_dict[target_todo_id]
+            todo_unit_view.updateData(cmd.fields_values)
+            # if 'task_desc' in cmd.fields_values.keys():
+            #     todo_unit_view.data['conn_task_desc'] = cmd.fields_values['task_desc']
+            #     todo_unit_view.data['todo_desc'] = cmd.fields_values['task_desc']
+            #     todo_unit_view.data['conclusion_desc'] = cmd.fields_values['update_desc_list']
+            # if 'is_critical' in cmd.fields_values.keys():
+            #     todo_unit_view.data['is_critical'] = cmd.fields_values['is_critical']
+            # if 'officejob_type' in cmd.fields_values.keys():
+            #     todo_unit_view.data['officejob_type'] = cmd.fields_values['officejob_type']
+            if self.accept_state.accept_complete:
+                todo_unit_view.updateWidget()

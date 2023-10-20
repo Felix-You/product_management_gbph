@@ -108,7 +108,7 @@ class WidgetGroupFrame(QtWidgets.QFrame):
         self.nested_mode = False
         self.entered_by_intention = False
         n_widgets = len(self.standing_widgets) + len(self.hiding_widgets)
-        n_col = math.ceil(math.sqrt(n_widgets))
+        n_col = math.ceil(math.sqrt(n_widgets/(self.widget_width/self.widget_height)))
         n_row = math.ceil(n_widgets/n_col)
         old_width = self.set_width
         old_height = self.set_height

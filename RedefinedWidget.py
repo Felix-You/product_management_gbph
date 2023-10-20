@@ -2,11 +2,10 @@ from copy import deepcopy
 
 import DataView
 from PyQt5 import QtCore, QtGui, QtWidgets, Qt
-from PyQt5.QtWidgets import QTextEdit, QSlider, QLineEdit, QCheckBox, QFrame, QDialogButtonBox, QCompleter,\
-    QAbstractButton,\
-    QItemDelegate, QStyle, QStyleOption
-from PyQt5.QtCore import QStringListModel, Qt, QAbstractProxyModel, QModelIndex, QItemSelection, QRectF, QPointF, QTime,\
-    QUrl, QTimer, QRect
+from PyQt5.QtWidgets import QTextEdit, QSlider, QLineEdit, QCheckBox, QFrame, QDialogButtonBox, QCompleter, \
+    QAbstractButton, QItemDelegate, QStyle, QStyleOption, QPlainTextEdit, QStyleOptionViewItem, QToolTip
+from PyQt5.QtCore import QStringListModel, Qt, QAbstractProxyModel, QModelIndex, QItemSelection, QRectF, QPointF, QTime, \
+    QUrl, QTimer, QRect, QAbstractItemModel
 from PyQt5.QtGui import QBitmap, QPainter, QColor, QKeyEvent, QStandardItem, QStandardItemModel, QPixmap
 from PyQt5.Qt import QCursor, pyqtSignal, QEvent, QMouseEvent, QPoint
 
@@ -1181,6 +1180,58 @@ class LineEditDelegate(QItemDelegate):
         value = index.model().data(index, Qt.DisplayRole)
         editor.setText(value if value is not None else None)
 
+class PlainTextDelegate(QItemDelegate):
+    def __init__(self, parent=None, editable_columns: list = None, place_holders: list = None):
+        super(PlainTextDelegate, self).__init__(parent)
+        self.place_holders = place_holders
+        self.editable_columns = editable_columns
+        self.parent = parent
+
+    def paint(self, painter, option, index):
+        if not self.editable_columns or index.column() in self.editable_columns:  # 未指定可编辑列，默认都可以编辑
+            value = index.model().data(index, Qt.DisplayRole)
+            option.displayAlignment = Qt.AlignRight | Qt.AlignVCenter
+            self.drawDisplay(painter, option, option.rect, str(value) if value is not None else None)
+            self.drawFocus(painter, option, option.rect)
+        else:
+            super(LineEditDelegate, self).paint(painter, option, index)
+
+    def createEditor(self, parent, option, index):
+        if not self.editable_columns or index.column() in self.editable_columns:
+            self.parent.setHoldWindow()
+            textEdit = QtWidgets.QPlainTextEdit(parent)
+            if self.place_holders and index.column() < len(self.place_holders):
+                placeHolderText = self.place_holders[index.column()]
+                textEdit.setPlaceholderText(placeHolderText)
+            # textEdit.editingFinished.connect(self.commitAndCloseEditor)
+            # textEdit.editingFinished.connect(lambda: self.parent.setFocus())
+            # textEdit.editingFinished.connect(lambda: self.parent.setEdited())
+            # textEdit.editingFinished.connect(lambda: self.parent.adjustRowCount(index.row()))
+            # textEdit.editingFinished.connect(lambda: self.parent.setHoldWindow(False))
+            return textEdit
+        else:
+            return super(PlainTextDelegate, self).createEditor(parent, option, index)
+
+    # def commitAndCloseEditor(self):
+    #     lineEdit = self.sender()
+    #     self.commitData.emit(lineEdit)
+    #     self.closeEditor.emit(lineEdit)
+
+    # def updateEditorGeometry(self, editor: QPlainTextEdit, option: QStyleOptionViewItem, index: QtCore.QModelIndex) -> None:
+    #     editor.setGeometry(option.rect)
+
+    def setEditorData(self, editor:QPlainTextEdit, index:QModelIndex):
+        value = index.model().data(index, Qt.DisplayRole)
+        # print(value,editor)
+        editor.setPlainText(value if value is not None else None)
+
+    def setModelData(self, editor:QPlainTextEdit, model:QAbstractItemModel, index:QModelIndex) -> None:
+        # print('set data model')
+        text = editor.toPlainText()
+        # self.commitData.emit(editor)
+        self.closeEditor.emit(editor)
+        model.setData(index, text)
+
 
 class VectorEditTable(QtWidgets.QTableView):
     EditingFinished = pyqtSignal(list)
@@ -1203,11 +1254,20 @@ class VectorEditTable(QtWidgets.QTableView):
         self.horizontalHeader().setDefaultSectionSize(80)
         self.horizontalHeader().setMaximumHeight(25)
         self.verticalHeader().hide()
+        self.setMouseTracking(True)
+        self.entered.connect(self.showToolTip)
         self.setData(self.h_header, self.data, place_holders, editable_columns, column_widths, old_data_editable,
                      min_row_count)
         # self.parent.installEventFilter(self)
 
-    def setHoldWindow(self, hold:bool = True):
+    def showToolTip(self, index:QModelIndex):
+        value = index.model().data(index,  Qt.DisplayRole)
+        if value is None:
+            return
+        text = str(value)
+        QToolTip.showText(QCursor.pos(), text,  None, QRect(), 5000)
+
+    def setHoldWindow(self, hold: bool = True):
         self.hold_window = hold
 
     def setEdited(self):
@@ -1345,9 +1405,7 @@ class VectorEditTable(QtWidgets.QTableView):
             # if self.view().hasMouse() :
             QtWidgets.QTableView.focusOutEvent(self, e)
         else:
-            if self.edited:
-                data = self.getData()
-                self.EditingFinished.emit(data)
+
             self.playCloseAnimation()
             QtWidgets.QTableView.focusOutEvent(self, e)
 
@@ -1364,6 +1422,9 @@ class VectorEditTable(QtWidgets.QTableView):
         # super(VictorEditTable, self).closeEvent(a0)
 
     def deleteSelf(self):
+        if self.edited:
+            data = self.getData()
+            self.EditingFinished.emit(data)
         self.parent.removeEventFilter(self)
         self.close()
         self.Close.emit()
@@ -2214,10 +2275,10 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi_Cut1.Ui_Form_1):
     def enterEvent(self, a0: QtCore.QEvent) -> None:
         if self.hold_enter_leave_event:
             return
-        print('enter ',self, 'on_expanding state', self.on_expanding)
-        print('--- timer start in enter, timer id', self.timer.timerId())
+        # print('enter ',self, 'on_expanding state', self.on_expanding)
+        # print('--- timer start in enter, timer id', self.timer.timerId())
         self.timer.start(500)
-        print('start timer id',self.timer.timerId())
+        # print('start timer id',self.timer.timerId())
         pass
 
     def blockMouseEvent(func):
@@ -2232,18 +2293,18 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi_Cut1.Ui_Form_1):
 
     @blockMouseEvent
     def showExpand(self):
-        print(self,'Timer stop in expand, timer id', self.timer.timerId())
+        # print(self, 'Timer stop in expand, timer id', self.timer.timerId())
         self.timer.stop()
         if self.on_expanding:
-            # This function could be trigger by different user behaviors,
+            # This function could be triggered by different user behaviors,
             # and should be blocked when the widget is expanded.
             return
         self.on_expanding = False
         # self.old_geo = self.geometry() # This can cause reentrancy problems, because its parentWidget might be changed
                                          # by unexpected signals
-        old_place = self.parent.mapToGlobal(self.base_geo.topLeft())
+        global_pos = self.parent.mapToGlobal(self.base_geo.topLeft())
         new_parent = self.parent.parentWidget()
-        new_pos = new_parent.mapFromGlobal(old_place)
+        new_pos = new_parent.mapFromGlobal(global_pos)
         self.setParent(new_parent)
         self.move(new_pos)
         self.setFixedSize(250, 150)
@@ -2252,6 +2313,8 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi_Cut1.Ui_Form_1):
         self.on_expanding = True
         self.control_panel.show()
         # self.setParent(new_parent)
+
+
 
     @blockMouseEvent
     def showNested(self):
@@ -2267,7 +2330,7 @@ class ToDoUnitWidget(QtWidgets.QFrame, ToDoUnitUi_Cut1.Ui_Form_1):
     def leaveEvent(self, a0: QtCore.QEvent) -> None:
         if self.hold_enter_leave_event:
             return
-        print(self, 'Timer stop in leave, timer id', self.timer.timerId())
+        # print(self, 'Timer stop in leave, timer id', self.timer.timerId())
         self.timer.stop()
         if self.on_expanding:
             # print('trigger nest')
