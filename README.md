@@ -20,6 +20,7 @@ A GUI project manage program in python.
 # How to launch
 1. `pip install -r requirements.txt`
 2. `python GBT_Pro.py`
+3. Requires python39 or higher.
 
 # Release
 Coming soon
