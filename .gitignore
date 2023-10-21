@@ -7,11 +7,12 @@ log
 __pycache__/
 *.py[cod]
 *$py.class
-.idea
+.idea/
 # C extensions
 *.so
 filepath.ini
 register.txt
+.idea/misc.xml
 # Distribution / packaging
 .Python
 build/
