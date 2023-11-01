@@ -38,6 +38,8 @@ class ToDoPanelView():
     COMPANY_KEY_ALIAS_FIELD = ('conn_company_id', 'conn_company_name') # (field_name_of_database, field_to_show_user)
     JOBTYPE_KEY_ALIAS_FIELD = ('officejob_type', None)
     PROJECT_KEY_ALIAS_FIELD = ('conn_project_name', 'conn_project_name')
+    GRID_METRICS= {'margin':2, 'widget_spacing':4, 'group_h_spacing':4, 'group_v_spacing':4, 'group_h_margin':10,
+                         'group_v_margin':10, 'widget_height':100, 'widget_width':250}
 
 
     def __init__(self,parent=None, parent_widget = None):
@@ -52,11 +54,15 @@ class ToDoPanelView():
         self.accept_state = AccceptState()
         self.presenter = None
         self.tab_bar = TodoViewTabBar(parent=parent_widget)
+        self.bound_widget_header = self.tab_bar.tableWidget_header
+        self.bound_widget_header.setHorizontalScrollMode(QtWidgets.QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.todo_panel = GridPanel(parent_view=self, parent_widget = self.tab_bar)
+        self.todo_panel.setMetrics(**self.GRID_METRICS)
         # self.todo_panel_layout = QtWidgets.QVBoxLayout(self.todo_panel)
         self.tab_bar.todoPanelScroll.setWidget(self.todo_panel)
         self.tab_bar.todoPanelScroll.setStyleSheet('background:transparent')
         self.tab_bar.todoPanelScroll.focusNextPrevChild = types.MethodType(non_focusNextPrevChild, self.tab_bar.todoPanelScroll)
+        self.tab_bar.todoPanelScroll.horizontalScrollBar().valueChanged.connect(self.set_bound_widget_header_scroll_value)
         # self.tab_bar.verticalLayout.replaceWidget(self.tab_bar.todoPanelScroll, self.todo_panel)
         # self.tab_bar.todoPanelScroll.deleteLater()
         self.group_widget_ignore_leave = False
@@ -108,8 +114,10 @@ class ToDoPanelView():
 
     def setupPanel(self):
         self.todo_panel.clearLanes()
+        lane_names = []
         for lane_name, lane in self.group_info.items():
             lane_groups = []
+            lane_names.append(lane_name)
             for group in lane:
                 group_frame = WidgetGroupFrame(self, self.todo_panel)
                 group_frame.setObjectName('group_frame')
@@ -124,6 +132,7 @@ class ToDoPanelView():
                 group_frame.addWidgets(widgets)
                 lane_groups.append(group_frame)
             self.todo_panel.addLane(lane_groups)
+        self.renderTableWidget_header(lane_names)
         self.todo_panel.lay_widgets()
         self.todo_panel.show()
 
@@ -187,7 +196,7 @@ class ToDoPanelView():
         self.bound_widget.dragEnterEvent = types.MethodType(new_dragEnterEvent, self.bound_widget)
         self.bound_widget_header.setHorizontalScrollMode(QtWidgets.QAbstractItemView.ScrollPerPixel)
         self.bound_widget_header.setFixedHeight(30 * FIX_SIZE_WIDGET_SCALING)
-
+                                                                   
     @updateControl
     def renderTableWidget(self, todo_view_matrix:list[list]):
         row_count = 0
@@ -233,7 +242,9 @@ class ToDoPanelView():
         self.bound_widget_header.setRowCount(1)
         self.bound_widget_header.setColumnCount(len(header_items))
         scale_ratio = FIX_SIZE_WIDGET_SCALING
-        self.bound_widget_header.horizontalHeader().setDefaultSectionSize(int(300 * scale_ratio))
+        header_width = self.GRID_METRICS['group_h_spacing'] \
+                       + self.GRID_METRICS['group_h_margin']*2 + self.GRID_METRICS['widget_width']
+        self.bound_widget_header.horizontalHeader().setDefaultSectionSize(int(header_width ))
         self.bound_widget_header.horizontalHeader().setVisible(False)
         self.bound_widget_header.verticalHeader().setVisible(False)
         # self.bound_widget_header.horizontalScrollBar().setVisible(False)
@@ -247,7 +258,8 @@ class ToDoPanelView():
             # self.bound_widget_header.setFixedHeight(30 * FIX_SIZE_WIDGET_SCALING)
         elif self.arrange_strategy == self.ARRANGE_COMPANY or self.arrange_strategy == self.ARRANGE_PROJECT:
             # self.bound_widget_header.verticalHeader().setDefaultSectionSize(int(50 * scale_ratio))
-            header_items = [' | '.join(header) for header in header_items]
+            # header_items = [' | '.join(header) for header in header_items]
+            pass
         else:
             return
         max_header_text_height = 0
@@ -294,18 +306,21 @@ class ToDoPanelView():
             max_header_text_height = max(max_header_text_height, height)
             n = 0
         self.bound_widget_header.setFixedHeight(int(max_header_text_height + 1))
+        # self.bound_widget_header.setFixedHeight(30)
         self.bound_widget_header.verticalHeader().setDefaultSectionSize(int(max_header_text_height + 2))
-
-
+        # self.bound_widget_header.verticalHeader().setDefaultSectionSize(32)
 
     def on_check_status_changed(self, check_status):
         before_load_todo = time.perf_counter()
         self.check_status = check_status.copy()
         check_status['arrange_strategy'] = self.arrange_strategy
         json_check_status = json.dumps(check_status)
+        # 获取分好组的todo数据
         json_model_group_info = self.presenter.handleSettingChange(json_check_status)
         model_group_info = json.loads(json_model_group_info)
+        # dict:{group_name:[[(todo_unit_id, 是否显露),(...),...], [(todo_unit_id, 是否显露),(...),...]]}
         self.group_info = model_group_info['group_info']
+        # 所需todo数据
         model_data = model_group_info['model_data']
         for log in model_data:
             self.updateCache(log)

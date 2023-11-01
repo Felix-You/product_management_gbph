@@ -7,7 +7,6 @@ import openpyxl, ctypes
 from ID_Generate import ID_Generator
 # import AppKit
 # [(screen.frame().size.width, screen.frame().size.height) for screen in AppKit.NSScreen.screens()] # MacOs
-
 import DataCenter
 from DataCenter import *
 from GColour import *
@@ -240,8 +239,6 @@ clipboard = QApplication.clipboard()
 #
 # clipboard.dataChanged.connect(on_clipboard_change)
 
-
-
 class QComboBox(QComboBox):#重写鼠标滚轮事件，禁用滚轮
     def wheelEvent(self, QWheelEvent):
         pass
@@ -469,20 +466,20 @@ class OverView(View):
         dict_proj_id_instance = {}
         time_before_making_project_client = time.perf_counter()
         for item in project_client_status_join_data:
-            project = Project()
+            project = Project() # 创建project实例
             project.assign_data(project_fields, item[:project_fields_len])
             project.status_code = item[-1]
             project.has_active_task_critical = False
             dict_proj_id_instance[project._id] = project
             client_id = project.client_id
             if not client_id in dict_client_id_instance:
-                client = Client()
+                client = Client() # 创建client实例
                 client.assign_data(client_fields, item[project_fields_len: project_fields_len+client_fields_len])
                 dict_client_id_instance[client_id] = client
                 self.clients.append(client)
             dict_client_id_instance[client_id].projects.append(project)
         time_after_making_project_client = time.perf_counter()
-        print('time for making_project_client_instances',time_after_making_project_client - time_before_making_project_client)
+        print('time for making_project_client_instances', time_after_making_project_client - time_before_making_project_client)
         client_ids = list(dict_client_id_instance.keys())
         project_ids = list(dict_proj_id_instance.keys())
 
@@ -889,7 +886,8 @@ class OverView(View):
                 action_remove = action_remove_from_group.addAction(group)
                 action_remove.triggered.connect(partial(self.remove_from_group, i, group))
         action_add_project.triggered.connect(lambda: self.add_project(i))
-        action_add_todo.triggered.connect(lambda : ToDoView.add_todo_log(self.parent, self.clients[i]._id))
+        from apps.TodoPanel import TodoPanelView
+        action_add_todo.triggered.connect(lambda : TodoPanelView.ToDoPanelView.add_todo_log(self.parent, self.clients[i]._id))
         self.cell_menu.popup(QtGui.QCursor.pos())
 
     def add_to_group(self, i, group):

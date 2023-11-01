@@ -413,7 +413,7 @@ class GridPanel(QtWidgets.QScrollArea):
         # self.horizontalLayout.setAlignment(Qt.AlignLeft)
         # self.setStyleSheet('background:blue')
         # self.setLayout(self.horizontalLayout)
-        self.setMetrics(2, 4, 4 ,4, 10, 10, 100, 250)
+
         self.lanes = []
 
 

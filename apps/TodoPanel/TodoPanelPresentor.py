@@ -128,7 +128,6 @@ class GridModel:
         self.lanes.clear()
         self.lane_names.clear()
 
-
     def add_unit(self, id: str, unit_model, box: Box, i_pos: int):
         '''
         id: the id of the unit
@@ -277,6 +276,7 @@ class TodoPanelPresenter:
 
         self.bound_widget = None
         self.bound_widget_header = None
+
     def set_arrange_strategy(self, index):
         self.arrange_strategy = index
         if self.arrange_strategy == self.ARRANGE_COMPANY:
@@ -705,7 +705,7 @@ class TodoPanelPresenter:
         json_group_info = self.getModelGroups()
         self.view.acceptRefresh(json_group_info)
 
-    def getModelGroups(self, with_model_data= False):
+    def getModelGroups(self, with_model_data=False):
         ''''''
         lane_names = self.GridModel.lane_names
         # lanes = {lane_name:{} for lane_name in lane_names}
@@ -716,21 +716,21 @@ class TodoPanelPresenter:
             lane = []
             for children in box.children:
                 tmp_models = []
-                tmp_id_hidden = []
+                pair_id_isHidden = []
                 Box.flatten(children, tmp_models)
                 if len(tmp_models) == 0:
                     continue
                 for model in tmp_models:
                     if model.isPriority():
-                        tmp_id_hidden.append([model._id, False])
+                        pair_id_isHidden.append([model._id, False])
                     else:
-                        tmp_id_hidden.append([model._id, True])
-                    tmp_id_hidden[0][1] = False
+                        pair_id_isHidden.append([model._id, True])
+                    pair_id_isHidden[0][1] = False
                     if with_model_data:
                         model_data_single = model.getModelAttribData()
                         model_data_single.pop('box')
                         model_data.append(model_data_single)
-                lane.append(tmp_id_hidden)
+                lane.append(pair_id_isHidden)
             # lanes
             lst.append(lane)
 
